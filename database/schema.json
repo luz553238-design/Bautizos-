@@ -1,0 +1,1530 @@
+{
+  "personas": {
+    "title": "Personas",
+    "columns": {
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "nombre": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "apellido_paterno": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "apellido_materno": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_nacimiento": {
+        "type": "date",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "sexo": {
+        "type": "enum",
+        "length": null,
+        "enum": [
+          "masculino",
+          "femenino",
+          "otro"
+        ],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "curp": {
+        "type": "varchar",
+        "length": 18,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "telefono": {
+        "type": "varchar",
+        "length": 15,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "correo": {
+        "type": "varchar",
+        "length": 150,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_registro": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      },
+      "activo": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      }
+    },
+    "keys": [
+      "id_persona"
+    ],
+    "unique": [
+      [
+        "curp"
+      ],
+      [
+        "correo"
+      ]
+    ],
+    "foreign": {}
+  },
+  "direcciones": {
+    "title": "Direcciones",
+    "columns": {
+      "id_direccion": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "calle": {
+        "type": "varchar",
+        "length": 150,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "numero_exterior": {
+        "type": "varchar",
+        "length": 20,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "numero_interior": {
+        "type": "varchar",
+        "length": 20,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "colonia": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "codigo_postal": {
+        "type": "varchar",
+        "length": 10,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "municipio": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "estado": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "referencias": {
+        "type": "varchar",
+        "length": 255,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_direccion"
+    ],
+    "unique": [],
+    "foreign": {
+      "id_persona": {
+        "table": "personas",
+        "key": "id_persona",
+        "delete": "cascade"
+      }
+    }
+  },
+  "usuarios": {
+    "title": "Usuarios",
+    "columns": {
+      "id_usuario": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "nombre_usuario": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "contrasena": {
+        "type": "varchar",
+        "length": 255,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "activo": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      },
+      "ultimo_acceso": {
+        "type": "datetime",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_creacion": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_usuario"
+    ],
+    "unique": [
+      [
+        "id_persona"
+      ],
+      [
+        "nombre_usuario"
+      ]
+    ],
+    "foreign": {
+      "id_persona": {
+        "table": "personas",
+        "key": "id_persona",
+        "delete": "restrict"
+      }
+    }
+  },
+  "roles": {
+    "title": "Roles",
+    "columns": {
+      "id_rol": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "nombre": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "descripcion": {
+        "type": "varchar",
+        "length": 255,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_rol"
+    ],
+    "unique": [
+      [
+        "nombre"
+      ]
+    ],
+    "foreign": {}
+  },
+  "usuario_rol": {
+    "title": "Usuario rol",
+    "columns": {
+      "id_usuario": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_rol": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_usuario",
+      "id_rol"
+    ],
+    "unique": [],
+    "foreign": {
+      "id_usuario": {
+        "table": "usuarios",
+        "key": "id_usuario",
+        "delete": "cascade"
+      },
+      "id_rol": {
+        "table": "roles",
+        "key": "id_rol",
+        "delete": "restrict"
+      }
+    }
+  },
+  "sacerdotes": {
+    "title": "Sacerdotes",
+    "columns": {
+      "id_sacerdote": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "numero_identificacion": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "activo": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      }
+    },
+    "keys": [
+      "id_sacerdote"
+    ],
+    "unique": [
+      [
+        "id_persona"
+      ],
+      [
+        "numero_identificacion"
+      ]
+    ],
+    "foreign": {
+      "id_persona": {
+        "table": "personas",
+        "key": "id_persona",
+        "delete": "restrict"
+      }
+    }
+  },
+  "secretarias": {
+    "title": "Secretarias",
+    "columns": {
+      "id_secretaria": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "puesto": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "activo": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      }
+    },
+    "keys": [
+      "id_secretaria"
+    ],
+    "unique": [
+      [
+        "id_persona"
+      ]
+    ],
+    "foreign": {
+      "id_persona": {
+        "table": "personas",
+        "key": "id_persona",
+        "delete": "restrict"
+      }
+    }
+  },
+  "padres_tutores": {
+    "title": "Padres tutores",
+    "columns": {
+      "id_padre_tutor": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "ocupacion": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "activo": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      }
+    },
+    "keys": [
+      "id_padre_tutor"
+    ],
+    "unique": [
+      [
+        "id_persona"
+      ]
+    ],
+    "foreign": {
+      "id_persona": {
+        "table": "personas",
+        "key": "id_persona",
+        "delete": "restrict"
+      }
+    }
+  },
+  "padrinos": {
+    "title": "Padrinos",
+    "columns": {
+      "id_padrino": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "estado_civil": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "activo": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      }
+    },
+    "keys": [
+      "id_padrino"
+    ],
+    "unique": [
+      [
+        "id_persona"
+      ]
+    ],
+    "foreign": {
+      "id_persona": {
+        "table": "personas",
+        "key": "id_persona",
+        "delete": "restrict"
+      }
+    }
+  },
+  "bautizados": {
+    "title": "Bautizados",
+    "columns": {
+      "id_bautizado": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "lugar_nacimiento": {
+        "type": "varchar",
+        "length": 150,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "observaciones": {
+        "type": "text",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_bautizado"
+    ],
+    "unique": [
+      [
+        "id_persona"
+      ]
+    ],
+    "foreign": {
+      "id_persona": {
+        "table": "personas",
+        "key": "id_persona",
+        "delete": "restrict"
+      }
+    }
+  },
+  "estados_solicitud": {
+    "title": "Estados solicitud",
+    "columns": {
+      "id_estado_solicitud": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "nombre": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "descripcion": {
+        "type": "varchar",
+        "length": 255,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_estado_solicitud"
+    ],
+    "unique": [
+      [
+        "nombre"
+      ]
+    ],
+    "foreign": {}
+  },
+  "solicitudes_bautismo": {
+    "title": "Solicitudes bautismo",
+    "columns": {
+      "id_solicitud": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "folio": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_bautizado": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_solicitud": {
+        "type": "date",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_estado_solicitud": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "observaciones": {
+        "type": "text",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "creado_por": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_creacion": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      },
+      "fecha_actualizacion": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_solicitud"
+    ],
+    "unique": [
+      [
+        "folio"
+      ]
+    ],
+    "foreign": {
+      "id_bautizado": {
+        "table": "bautizados",
+        "key": "id_bautizado",
+        "delete": "restrict"
+      },
+      "id_estado_solicitud": {
+        "table": "estados_solicitud",
+        "key": "id_estado_solicitud",
+        "delete": "restrict"
+      },
+      "creado_por": {
+        "table": "usuarios",
+        "key": "id_usuario",
+        "delete": "restrict"
+      }
+    }
+  },
+  "solicitud_tutores": {
+    "title": "Solicitud tutores",
+    "columns": {
+      "id_solicitud": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_padre_tutor": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "parentesco": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "tutor_principal": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": false
+      }
+    },
+    "keys": [
+      "id_solicitud",
+      "id_padre_tutor"
+    ],
+    "unique": [],
+    "foreign": {
+      "id_solicitud": {
+        "table": "solicitudes_bautismo",
+        "key": "id_solicitud",
+        "delete": "cascade"
+      },
+      "id_padre_tutor": {
+        "table": "padres_tutores",
+        "key": "id_padre_tutor",
+        "delete": "restrict"
+      }
+    }
+  },
+  "solicitud_padrinos": {
+    "title": "Solicitud padrinos",
+    "columns": {
+      "id_solicitud": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_padrino": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "tipo_participacion": {
+        "type": "enum",
+        "length": null,
+        "enum": [
+          "padrino",
+          "madrina"
+        ],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_solicitud",
+      "id_padrino"
+    ],
+    "unique": [],
+    "foreign": {
+      "id_solicitud": {
+        "table": "solicitudes_bautismo",
+        "key": "id_solicitud",
+        "delete": "cascade"
+      },
+      "id_padrino": {
+        "table": "padrinos",
+        "key": "id_padrino",
+        "delete": "restrict"
+      }
+    }
+  },
+  "tipos_documento": {
+    "title": "Tipos documento",
+    "columns": {
+      "id_tipo_documento": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "nombre": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "descripcion": {
+        "type": "varchar",
+        "length": 255,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "obligatorio": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      },
+      "activo": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      }
+    },
+    "keys": [
+      "id_tipo_documento"
+    ],
+    "unique": [
+      [
+        "nombre"
+      ]
+    ],
+    "foreign": {}
+  },
+  "documentos": {
+    "title": "Documentos",
+    "columns": {
+      "id_documento": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_solicitud": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_persona": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_tipo_documento": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "nombre_archivo": {
+        "type": "varchar",
+        "length": 255,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "ruta_archivo": {
+        "type": "varchar",
+        "length": 500,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "extension": {
+        "type": "varchar",
+        "length": 20,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "mime_type": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "tamano_bytes": {
+        "type": "bigint",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "estado_revision": {
+        "type": "enum",
+        "length": null,
+        "enum": [
+          "pendiente",
+          "aprobado",
+          "rechazado"
+        ],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": "pendiente"
+      },
+      "fecha_subida": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      },
+      "revisado_por": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_revision": {
+        "type": "datetime",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "observaciones_revision": {
+        "type": "text",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_documento"
+    ],
+    "unique": [],
+    "foreign": {
+      "id_solicitud": {
+        "table": "solicitudes_bautismo",
+        "key": "id_solicitud",
+        "delete": "cascade"
+      },
+      "id_persona": {
+        "table": "personas",
+        "key": "id_persona",
+        "delete": "restrict"
+      },
+      "id_tipo_documento": {
+        "table": "tipos_documento",
+        "key": "id_tipo_documento",
+        "delete": "restrict"
+      },
+      "revisado_por": {
+        "table": "usuarios",
+        "key": "id_usuario",
+        "delete": "set null"
+      }
+    }
+  },
+  "horarios_bautizo": {
+    "title": "Horarios bautizo",
+    "columns": {
+      "id_horario": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "fecha": {
+        "type": "date",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "hora_inicio": {
+        "type": "time",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "hora_fin": {
+        "type": "time",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "capacidad": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "disponible": {
+        "type": "boolean",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": true
+      },
+      "observaciones": {
+        "type": "varchar",
+        "length": 255,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_horario"
+    ],
+    "unique": [
+      [
+        "fecha",
+        "hora_inicio"
+      ]
+    ],
+    "foreign": {}
+  },
+  "citas": {
+    "title": "Citas",
+    "columns": {
+      "id_cita": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_solicitud": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_horario": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_sacerdote": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "estado": {
+        "type": "enum",
+        "length": null,
+        "enum": [
+          "programada",
+          "confirmada",
+          "realizada",
+          "cancelada",
+          "reprogramada"
+        ],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": "programada"
+      },
+      "fecha_creacion": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      },
+      "fecha_actualizacion": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      },
+      "observaciones": {
+        "type": "text",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_cita"
+    ],
+    "unique": [
+      [
+        "id_solicitud"
+      ]
+    ],
+    "foreign": {
+      "id_solicitud": {
+        "table": "solicitudes_bautismo",
+        "key": "id_solicitud",
+        "delete": "restrict"
+      },
+      "id_horario": {
+        "table": "horarios_bautizo",
+        "key": "id_horario",
+        "delete": "restrict"
+      },
+      "id_sacerdote": {
+        "table": "sacerdotes",
+        "key": "id_sacerdote",
+        "delete": "restrict"
+      }
+    }
+  },
+  "historial_citas": {
+    "title": "Historial citas",
+    "columns": {
+      "id_historial": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_cita": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "id_usuario": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "accion": {
+        "type": "varchar",
+        "length": 100,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "detalle": {
+        "type": "text",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_accion": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_historial"
+    ],
+    "unique": [],
+    "foreign": {
+      "id_cita": {
+        "table": "citas",
+        "key": "id_cita",
+        "delete": "cascade"
+      },
+      "id_usuario": {
+        "table": "usuarios",
+        "key": "id_usuario",
+        "delete": "restrict"
+      }
+    }
+  },
+  "bautismos": {
+    "title": "Bautismos",
+    "columns": {
+      "id_bautismo": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": true,
+        "generated": false,
+        "default": null
+      },
+      "id_cita": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_realizacion": {
+        "type": "date",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "folio_acta": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "numero_libro": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "numero_pagina": {
+        "type": "varchar",
+        "length": 50,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "observaciones": {
+        "type": "text",
+        "length": null,
+        "enum": [],
+        "required": false,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "registrado_por": {
+        "type": "int",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": false,
+        "default": null
+      },
+      "fecha_registro": {
+        "type": "timestamp",
+        "length": null,
+        "enum": [],
+        "required": true,
+        "auto": false,
+        "generated": true,
+        "default": null
+      }
+    },
+    "keys": [
+      "id_bautismo"
+    ],
+    "unique": [
+      [
+        "id_cita"
+      ],
+      [
+        "folio_acta"
+      ]
+    ],
+    "foreign": {
+      "id_cita": {
+        "table": "citas",
+        "key": "id_cita",
+        "delete": "restrict"
+      },
+      "registrado_por": {
+        "table": "usuarios",
+        "key": "id_usuario",
+        "delete": "restrict"
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+@extends('crud.layout')
+@section('content')
+<section class="hero p-4 p-lg-5 mb-4"><div class="eyebrow mb-2">Menú principal</div><h1 class="brand display-5">Bienvenido, {{ auth()->user()->nombre_usuario }}.</h1><p class="text-secondary mb-4">Administra las personas, organiza solicitudes y acompaña cada etapa del bautismo.</p><a class="btn btn-primary" href="{{ route('crud.create','solicitudes_bautismo') }}">Nueva solicitud</a><a class="btn btn-outline-secondary ms-2" href="{{ route('crud.index','personas') }}">Ver personas</a></section>
+<div class="row g-3 mb-5">@foreach(['personas','solicitudes_bautismo','citas','bautismos'] as $key)<div class="col-6 col-xl-3"><div class="card p-4"><span class="text-secondary small">{{ $modules[$key]['title'] }}</span><strong class="display-6 mt-2">{{ $counts[$key] }}</strong></div></div>@endforeach</div><h2 class="h4 mb-4">Módulos de administración</h2>
+<div class="row g-3">@foreach($modules as $name=>$definition)<div class="col-md-6 col-xl-4"><a class="module-link" href="{{ route('crud.index',$name) }}"><div class="card p-4"><span class="small text-secondary mb-3">{{ $counts[$name] }} registros</span><h3 class="h6">{{ $definition['title'] }}</h3><small class="text-secondary">Consultar y administrar →</small></div></a></div>@endforeach</div>
+@endsection
