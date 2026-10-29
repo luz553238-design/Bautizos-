@@ -41,6 +41,12 @@
             background: white;
             color: #34263e;
             cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .cerrar:hover {
+            background: #f0e4f1;
         }
 
         .contenedor {
@@ -64,6 +70,10 @@
             font-size: 32px;
         }
 
+        .bienvenida p {
+            line-height: 1.7;
+        }
+
         .tarjetas {
             display: grid;
             grid-template-columns:
@@ -78,15 +88,64 @@
             border-radius: 16px;
             border: 1px solid #e9e1ec;
             box-shadow: 0 5px 15px #00000008;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            transition:
+                transform 0.2s,
+                box-shadow 0.2s;
+        }
+
+        .tarjeta:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 22px #00000012;
         }
 
         .tarjeta h3 {
             color: #66466f;
+            margin-top: 20px;
+            margin-bottom: 8px;
         }
 
         .tarjeta p {
             line-height: 1.6;
             color: #6f6574;
+            flex-grow: 1;
+        }
+
+        .icono {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f0e4f1;
+            color: #66466f;
+            border-radius: 12px;
+            font-size: 24px;
+        }
+
+        .boton {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 11px 18px;
+            border-radius: 8px;
+            background: #735475;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .boton:hover {
+            background: #563c5a;
+        }
+
+        .boton:focus-visible,
+        .cerrar:focus-visible {
+            outline: 3px solid #b99ac4;
+            outline-offset: 3px;
         }
 
         .etiqueta {
@@ -99,13 +158,34 @@
             font-size: 13px;
         }
 
+        .mensaje {
+            margin-top: 22px;
+            padding: 15px 20px;
+            border-radius: 10px;
+        }
+
+        .mensaje-exito {
+            background: #d8eee2;
+            border: 1px solid #a8d3b8;
+            color: #20553a;
+        }
+
         @media (max-width: 600px) {
             .barra {
                 flex-direction: column;
+                text-align: center;
+            }
+
+            .bienvenida {
+                padding: 25px;
             }
 
             .bienvenida h1 {
                 font-size: 25px;
+            }
+
+            .tarjetas {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -128,6 +208,7 @@
 
 <main class="contenedor">
 
+    <!-- BIENVENIDA -->
     <section class="bienvenida">
 
         <h1>
@@ -146,58 +227,104 @@
 
     </section>
 
+    <!-- MENSAJES -->
+    @if (session('success'))
+        <div class="mensaje mensaje-exito">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    <!-- OPCIONES DEL CLIENTE -->
     <section class="tarjetas">
 
+        <!-- NUEVA SOLICITUD -->
         <article class="tarjeta">
+
+            <div class="icono" aria-hidden="true">
+                +
+            </div>
+
             <h3>Nueva solicitud</h3>
 
             <p>
                 Inicia el trámite para solicitar
-                un bautismo.
+                un bautismo. Completa los datos
+                del menor, padres, padrinos,
+                ceremonia y plática prebautismal.
             </p>
 
-            <span class="etiqueta">
-                Próximamente
-            </span>
+            <a href="{{ route('solicitudes.crear') }}"
+               class="boton">
+                Crear solicitud
+            </a>
+
         </article>
 
+        <!-- MIS SOLICITUDES -->
         <article class="tarjeta">
+
+            <div class="icono" aria-hidden="true">
+                &#9776;
+            </div>
+
             <h3>Mis solicitudes</h3>
 
             <p>
                 Consulta el estado de las
-                solicitudes que hayas registrado.
+                solicitudes registradas,
+                las fechas seleccionadas
+                y las propuestas de cambio
+                enviadas por el sacerdote.
             </p>
 
-            <span class="etiqueta">
-                Próximamente
-            </span>
+            <a href="{{ route('solicitudes.mis') }}"
+               class="boton">
+                Ver solicitudes
+            </a>
+
         </article>
 
+        <!-- MIS DOCUMENTOS -->
         <article class="tarjeta">
+
+            <div class="icono" aria-hidden="true">
+                &#128196;
+            </div>
+
             <h3>Mis documentos</h3>
 
             <p>
                 Consulta los documentos
-                relacionados con tus trámites.
+                relacionados con tus trámites,
+                como actas de nacimiento
+                y certificados de matrimonio.
             </p>
 
             <span class="etiqueta">
                 Próximamente
             </span>
+
         </article>
 
+        <!-- MIS CITAS -->
         <article class="tarjeta">
+
+            <div class="icono" aria-hidden="true">
+                &#128197;
+            </div>
+
             <h3>Mis citas</h3>
 
             <p>
                 Consulta las fechas y horarios
-                de tus próximas citas.
+                de tus próximas ceremonias
+                y pláticas prebautismales.
             </p>
 
             <span class="etiqueta">
                 Próximamente
             </span>
+
         </article>
 
     </section>

@@ -12,31 +12,24 @@ class AdministracionPermisosController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | AUTORIZACION DEL SUPERADMINISTRADOR
+    | AUTORIZACIÓN DEL SUPERADMINISTRADOR
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Verificar que el usuario autenticado
-     * tenga el rol de superadministrador.
-     */
     private function autorizar(): void
     {
         $usuario = Auth::user();
 
-        // Comprobar que el usuario inicio sesion.
         if (!$usuario instanceof Usuario) {
-            abort(401, 'Debes iniciar sesion.');
+            abort(401, 'Debes iniciar sesión.');
         }
 
-        // Comprobar que la cuenta este activa.
         abort_unless(
-            $usuario->activo,
+            (bool) $usuario->activo,
             403,
-            'Tu cuenta esta desactivada.'
+            'Tu cuenta está desactivada.'
         );
 
-        // Consultar el rol directamente desde MySQL.
         $esSuperadmin = DB::table('usuario_rol as ur')
             ->join(
                 'roles as r',
@@ -44,17 +37,13 @@ class AdministracionPermisosController extends Controller
                 '=',
                 'r.id_rol'
             )
-            ->where(
-                'ur.id_usuario',
-                $usuario->id_usuario
-            )
-            ->where(
-                'r.nombre',
-                'superadministrador'
+            ->where('ur.id_usuario', $usuario->id_usuario)
+            ->whereRaw(
+                'LOWER(TRIM(r.nombre)) = ?',
+                ['superadministrador']
             )
             ->exists();
 
-        // Impedir acceso a usuarios sin autorizacion.
         abort_unless(
             $esSuperadmin,
             403,
@@ -64,30 +53,46 @@ class AdministracionPermisosController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | VERIFICAR SI UN USUARIO ES SUPERADMINISTRADOR
+    |--------------------------------------------------------------------------
+    */
+
+    private function esSuperadministrador(int $idUsuario): bool
+    {
+        return DB::table('usuario_rol as ur')
+            ->join(
+                'roles as r',
+                'ur.id_rol',
+                '=',
+                'r.id_rol'
+            )
+            ->where('ur.id_usuario', $idUsuario)
+            ->whereRaw(
+                'LOWER(TRIM(r.nombre)) = ?',
+                ['superadministrador']
+            )
+            ->exists();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | MOSTRAR MATRIZ DE PERMISOS
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Mostrar todos los roles, permisos
-     * y asignaciones existentes.
-     */
     public function index()
     {
         $this->autorizar();
 
-        // Obtener los roles registrados.
         $roles = DB::table('roles')
             ->orderBy('nombre')
             ->get();
 
-        // Obtener los permisos disponibles.
         $permisos = DB::table('permisos')
             ->orderBy('modulo')
             ->orderBy('accion')
             ->get();
 
-        // Obtener permisos asignados a cada rol.
         $asignaciones = DB::table('rol_permiso')
             ->get()
             ->groupBy('id_rol')
@@ -101,7 +106,6 @@ class AdministracionPermisosController extends Controller
             })
             ->all();
 
-        // Mostrar la vista de permisos.
         return view(
             'admin.permisos',
             compact(
@@ -118,17 +122,12 @@ class AdministracionPermisosController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Guardar los permisos seleccionados
-     * para un rol determinado.
-     */
     public function actualizarPermisos(
         Request $request,
         int $idRol
     ) {
         $this->autorizar();
 
-        // Buscar el rol.
         $rol = DB::table('roles')
             ->where('id_rol', $idRol)
             ->first();
@@ -139,15 +138,14 @@ class AdministracionPermisosController extends Controller
             'El rol solicitado no existe.'
         );
 
-        // No permitir modificar los permisos
-        // del superadministrador.
+        // Los permisos del superadministrador son protegidos.
+
         abort_if(
-            $rol->nombre === 'superadministrador',
+            mb_strtolower(trim($rol->nombre)) === 'superadministrador',
             403,
             'No se pueden modificar los permisos del superadministrador.'
         );
 
-        // Validar los permisos recibidos.
         $data = $request->validate([
             'permisos' => [
                 'nullable',
@@ -156,21 +154,17 @@ class AdministracionPermisosController extends Controller
             'permisos.*' => [
                 'integer',
                 'distinct',
-                Rule::exists(
-                    'permisos',
-                    'id_permiso'
-                )
+                Rule::exists('permisos', 'id_permiso')
             ]
         ]);
 
-        // Convertir los identificadores a enteros.
         $ids = array_map(
             'intval',
             $data['permisos'] ?? []
         );
 
-        // Modulos reservados exclusivamente
-        // para el superadministrador.
+        // Módulos reservados para superadministradores.
+
         $modulosProtegidos = [
             'usuarios',
             'roles',
@@ -179,15 +173,10 @@ class AdministracionPermisosController extends Controller
             'rol_permiso'
         ];
 
-        // Comprobar si se intentan asignar
-        // permisos administrativos protegidos.
         $contieneProtegidos = !empty($ids)
             && DB::table('permisos')
                 ->whereIn('id_permiso', $ids)
-                ->whereIn(
-                    'modulo',
-                    $modulosProtegidos
-                )
+                ->whereIn('modulo', $modulosProtegidos)
                 ->exists();
 
         abort_if(
@@ -196,19 +185,12 @@ class AdministracionPermisosController extends Controller
             'No puedes asignar permisos de seguridad a este rol.'
         );
 
-        // Actualizar los permisos dentro
-        // de una transaccion.
-        DB::transaction(function () use (
-            $idRol,
-            $ids
-        ) {
+        DB::transaction(function () use ($idRol, $ids) {
 
-            // Eliminar asignaciones anteriores.
             DB::table('rol_permiso')
                 ->where('id_rol', $idRol)
                 ->delete();
 
-            // Registrar los nuevos permisos.
             if (!empty($ids)) {
 
                 $registros = array_map(
@@ -240,15 +222,10 @@ class AdministracionPermisosController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Mostrar todos los usuarios registrados
-     * y los roles asignados.
-     */
     public function usuarios()
     {
         $this->autorizar();
 
-        // Obtener usuarios y datos personales.
         $usuarios = DB::table('usuarios as u')
             ->join(
                 'personas as p',
@@ -266,12 +243,13 @@ class AdministracionPermisosController extends Controller
             ->orderBy('u.id_usuario')
             ->get();
 
-        // Obtener todos los roles.
+        // Incluimos todos los roles,
+        // también el de superadministrador.
+
         $roles = DB::table('roles')
             ->orderBy('nombre')
             ->get();
 
-        // Obtener los roles de cada usuario.
         $asignaciones = DB::table('usuario_rol')
             ->get()
             ->groupBy('id_usuario')
@@ -299,102 +277,96 @@ class AdministracionPermisosController extends Controller
     |--------------------------------------------------------------------------
     | ASIGNAR ROL A UN USUARIO
     |--------------------------------------------------------------------------
+    |
+    | Reglas:
+    |
+    | 1. Solo un superadministrador puede cambiar roles.
+    | 2. Se permite asignar el rol superadministrador.
+    | 3. Los superadministradores existentes están protegidos.
+    | 4. No se permite modificar el propio rol.
+    |
     */
 
-    /**
-     * Reemplazar el rol principal
-     * de un usuario registrado.
-     */
     public function actualizarRol(
         Request $request,
         int $idUsuario
     ) {
         $this->autorizar();
 
-        // Verificar que el usuario exista.
-        $usuario = DB::table('usuarios')
-            ->where('id_usuario', $idUsuario)
-            ->first();
-
-        abort_unless(
-            $usuario,
-            404,
-            'El usuario solicitado no existe.'
-        );
-
-        // Validar el rol seleccionado.
         $data = $request->validate([
             'id_rol' => [
                 'required',
                 'integer',
-                Rule::exists(
-                    'roles',
-                    'id_rol'
-                )
+                Rule::exists('roles', 'id_rol')
             ]
         ]);
 
-        // Obtener el nuevo rol.
-        $rolNuevo = DB::table('roles')
-            ->where(
-                'id_rol',
-                $data['id_rol']
-            )
-            ->first();
+        DB::transaction(function () use ($idUsuario, $data) {
 
-        // Comprobar si el usuario actualmente
-        // es superadministrador.
-        $esSuperadmin = DB::table('usuario_rol as ur')
-            ->join(
-                'roles as r',
-                'ur.id_rol',
-                '=',
-                'r.id_rol'
-            )
-            ->where(
-                'ur.id_usuario',
-                $idUsuario
-            )
-            ->where(
-                'r.nombre',
-                'superadministrador'
-            )
-            ->exists();
+            // Bloquear el registro durante el cambio.
 
-        // Proteger los usuarios superadministradores.
-        abort_if(
-            $esSuperadmin,
-            403,
-            'No se puede reemplazar el rol de un superadministrador.'
-        );
+            $usuario = DB::table('usuarios')
+                ->where('id_usuario', $idUsuario)
+                ->lockForUpdate()
+                ->first();
 
-        // Impedir asignar el rol superadministrador
-        // desde este formulario.
-        abort_if(
-            $rolNuevo->nombre === 'superadministrador',
-            403,
-            'La asignacion del rol superadministrador esta protegida.'
-        );
+            abort_unless(
+                $usuario,
+                404,
+                'El usuario solicitado no existe.'
+            );
 
-        // Actualizar el rol dentro de una transaccion.
-        DB::transaction(function () use (
-            $idUsuario,
-            $data
-        ) {
+            // Proteger la cuenta autenticada.
 
-            // Eliminar los roles anteriores.
+            abort_if(
+                $idUsuario === (int) Auth::user()->id_usuario,
+                403,
+                'No puedes modificar tu propio rol.'
+            );
+
+            // Proteger los superadministradores existentes.
+
+            abort_if(
+                $this->esSuperadministrador($idUsuario),
+                403,
+                'No se puede reemplazar el rol de un superadministrador.'
+            );
+
+            $rolNuevo = DB::table('roles')
+                ->where('id_rol', $data['id_rol'])
+                ->first();
+
+            abort_unless(
+                $rolNuevo,
+                404,
+                'El rol seleccionado no existe.'
+            );
+
+            // Un superadministrador autorizado sí puede
+            // asignar el rol de superadministrador.
+
+            // Evitar asignar privilegios a cuentas desactivadas.
+
+            if (
+                mb_strtolower(trim($rolNuevo->nombre)) === 'superadministrador'
+            ) {
+                abort_unless(
+                    (bool) $usuario->activo,
+                    422,
+                    'Debes activar la cuenta antes de convertirla en superadministrador.'
+                );
+            }
+
+            // Reemplazar el rol anterior.
+
             DB::table('usuario_rol')
-                ->where(
-                    'id_usuario',
-                    $idUsuario
-                )
+                ->where('id_usuario', $idUsuario)
                 ->delete();
 
-            // Asignar el nuevo rol.
             DB::table('usuario_rol')
                 ->insert([
                     'id_usuario' => $idUsuario,
-                    'id_rol' => $data['id_rol']
+                    'id_rol' => (int) $data['id_rol']
                 ]);
         });
 
@@ -412,65 +384,49 @@ class AdministracionPermisosController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Cambiar el estado de una cuenta
-     * sin eliminar sus registros.
-     */
-    public function cambiarEstado(
-        int $idUsuario
-    ) {
+    public function cambiarEstado(int $idUsuario)
+    {
         $this->autorizar();
 
-        // Buscar usuario.
-        $usuario = DB::table('usuarios')
-            ->where(
-                'id_usuario',
-                $idUsuario
-            )
-            ->first();
+        $nuevoEstado = DB::transaction(function () use ($idUsuario) {
 
-        abort_unless(
-            $usuario,
-            404,
-            'El usuario solicitado no existe.'
-        );
+            $usuario = DB::table('usuarios')
+                ->where('id_usuario', $idUsuario)
+                ->lockForUpdate()
+                ->first();
 
-        // Verificar si es superadministrador.
-        $esSuperadmin = DB::table('usuario_rol as ur')
-            ->join(
-                'roles as r',
-                'ur.id_rol',
-                '=',
-                'r.id_rol'
-            )
-            ->where(
-                'ur.id_usuario',
-                $idUsuario
-            )
-            ->where(
-                'r.nombre',
-                'superadministrador'
-            )
-            ->exists();
+            abort_unless(
+                $usuario,
+                404,
+                'El usuario solicitado no existe.'
+            );
 
-        // No permitir desactivar superadministradores.
-        abort_if(
-            $esSuperadmin,
-            403,
-            'No se puede modificar el estado de un superadministrador.'
-        );
+            // Impedir que un usuario se desactive a sí mismo.
 
-        // Invertir el estado actual.
-        $nuevoEstado = !$usuario->activo;
+            abort_if(
+                $idUsuario === (int) Auth::user()->id_usuario,
+                403,
+                'No puedes modificar el estado de tu propia cuenta.'
+            );
 
-        DB::table('usuarios')
-            ->where(
-                'id_usuario',
-                $idUsuario
-            )
-            ->update([
-                'activo' => $nuevoEstado
-            ]);
+            // Proteger todas las cuentas superadministradoras.
+
+            abort_if(
+                $this->esSuperadministrador($idUsuario),
+                403,
+                'No se puede modificar el estado de un superadministrador.'
+            );
+
+            $nuevoEstado = !(bool) $usuario->activo;
+
+            DB::table('usuarios')
+                ->where('id_usuario', $idUsuario)
+                ->update([
+                    'activo' => $nuevoEstado
+                ]);
+
+            return $nuevoEstado;
+        });
 
         return redirect()
             ->route('admin.usuarios')

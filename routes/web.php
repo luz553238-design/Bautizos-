@@ -9,10 +9,13 @@ use App\Models\Usuario;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CrudController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\SolicitudBautismoController;
+use App\Http\Controllers\AdministracionPermisosController;
+use App\Http\Controllers\RevisionBautismoController;
 
 /*
 |--------------------------------------------------------------------------
-| FUNCION PARA IDENTIFICAR AL USUARIO AUTENTICADO
+| FUNCIONES PARA IDENTIFICAR USUARIOS Y ROLES
 |--------------------------------------------------------------------------
 */
 
@@ -21,20 +24,39 @@ $obtenerUsuario = function (): Usuario {
     $usuario = Auth::user();
 
     if (!$usuario instanceof Usuario) {
-        abort(401, 'Debes iniciar sesion.');
+        abort(401, 'Debes iniciar sesión.');
     }
 
     return $usuario;
+};
+
+$esPersonalAdministrativo = function (Usuario $usuario): bool {
+
+    return $usuario->roles()
+        ->whereIn('roles.nombre', [
+            'superadministrador',
+            'administrador',
+            'secretaria',
+            'sacerdote'
+        ])
+        ->exists();
+};
+
+$esCliente = function (Usuario $usuario): bool {
+
+    return $usuario->roles()
+        ->whereIn('roles.nombre', [
+            'cliente',
+            'padre_tutor',
+            'padrino'
+        ])
+        ->exists();
 };
 
 /*
 |--------------------------------------------------------------------------
 | RUTA PRINCIPAL
 |--------------------------------------------------------------------------
-|
-| Si el usuario esta autenticado, se redirige a su panel.
-| Si no esta autenticado, se muestra el inicio de sesion.
-|
 */
 
 Route::get('/', function () {
@@ -47,47 +69,38 @@ Route::get('/', function () {
 
 })->name('inicio');
 
-
 /*
 |--------------------------------------------------------------------------
-| RUTAS PARA USUARIOS NO AUTENTICADOS
+| AUTENTICACIÓN Y REGISTRO
 |--------------------------------------------------------------------------
-|
-| Inicio de sesion, registro y configuracion inicial.
-|
 */
 
 Route::middleware('guest')
     ->controller(AuthController::class)
     ->group(function () {
 
-        // Mostrar formulario de inicio de sesion.
         Route::get('/login', 'form')
             ->name('login');
 
-        // Procesar inicio de sesion.
         Route::post('/login', 'login')
+            ->middleware('throttle:5,1')
             ->name('login.store');
 
-        // Mostrar formulario de registro.
         Route::get('/crear-cuenta', 'registration')
             ->name('register');
 
-        // Registrar usuario nuevo.
         Route::post('/crear-cuenta', 'register')
             ->middleware('throttle:5,1')
             ->name('register.store');
 
-        // Crear primer superadministrador.
         Route::post('/primer-usuario', 'setup')
             ->middleware('throttle:5,1')
             ->name('setup');
     });
 
-
 /*
 |--------------------------------------------------------------------------
-| CERRAR SESION
+| CERRAR SESIÓN
 |--------------------------------------------------------------------------
 */
 
@@ -98,52 +111,33 @@ Route::post('/logout', [
     ->middleware('auth')
     ->name('logout');
 
-
 /*
 |--------------------------------------------------------------------------
-| REDIRECCION SEGUN EL ROL
+| REDIRECCIÓN SEGÚN EL ROL
 |--------------------------------------------------------------------------
 |
-| Superadministrador, administrador, secretaria y sacerdote:
-| Panel administrativo.
+| Administradores, secretarias y sacerdotes:
+|     /menu
 |
-| Cliente:
-| Panel exclusivo de clientes.
-|
-| Padre tutor y padrino:
-| Se redirigen al panel de cliente cuando no tienen otro rol.
+| Clientes, padres y padrinos:
+|     /solicitudes/menu
 |
 */
 
-Route::get('/redirigir-panel', function () use ($obtenerUsuario) {
+Route::get('/redirigir-panel', function () use (
+    $obtenerUsuario,
+    $esPersonalAdministrativo,
+    $esCliente
+) {
 
     $usuario = $obtenerUsuario();
 
-    // Comprobar si pertenece al personal administrativo.
-    $esPersonal = $usuario->roles()
-        ->whereIn('roles.nombre', [
-            'superadministrador',
-            'administrador',
-            'secretaria',
-            'sacerdote'
-        ])
-        ->exists();
-
-    if ($esPersonal) {
+    if ($esPersonalAdministrativo($usuario)) {
         return redirect()->route('dashboard');
     }
 
-    // Comprobar si tiene rol de cliente.
-    $esCliente = $usuario->roles()
-        ->whereIn('roles.nombre', [
-            'cliente',
-            'padre_tutor',
-            'padrino'
-        ])
-        ->exists();
-
-    if ($esCliente) {
-        return redirect()->route('cliente.dashboard');
+    if ($esCliente($usuario)) {
+        return redirect()->route('solicitudes.menu');
     }
 
     abort(
@@ -155,34 +149,22 @@ Route::get('/redirigir-panel', function () use ($obtenerUsuario) {
     ->middleware('auth')
     ->name('panel.redirect');
 
-
 /*
 |--------------------------------------------------------------------------
 | PANEL ADMINISTRATIVO
 |--------------------------------------------------------------------------
-|
-| Solo puede acceder el personal autorizado.
-|
 */
 
-Route::get('/menu', function () use ($obtenerUsuario) {
+Route::get('/menu', function () use (
+    $obtenerUsuario,
+    $esPersonalAdministrativo
+) {
 
     $usuario = $obtenerUsuario();
 
-    $esPersonal = $usuario->roles()
-        ->whereIn('roles.nombre', [
-            'superadministrador',
-            'administrador',
-            'secretaria',
-            'sacerdote'
-        ])
-        ->exists();
+    if (!$esPersonalAdministrativo($usuario)) {
 
-    if (!$esPersonal) {
-        abort(
-            403,
-            'No tienes permiso para acceder al panel administrativo.'
-        );
+        return redirect()->route('solicitudes.menu');
     }
 
     return app(CrudController::class)->dashboard();
@@ -191,11 +173,14 @@ Route::get('/menu', function () use ($obtenerUsuario) {
     ->middleware('auth')
     ->name('dashboard');
 
-
 /*
 |--------------------------------------------------------------------------
-| PANEL EXCLUSIVO PARA CLIENTES
+| PANEL DE CLIENTES EXISTENTE
 |--------------------------------------------------------------------------
+|
+| Se conserva la ruta original para evitar romper
+| enlaces y funciones que ya la utilizan.
+|
 */
 
 Route::get('/cliente', [
@@ -205,14 +190,116 @@ Route::get('/cliente', [
     ->middleware('auth')
     ->name('cliente.dashboard');
 
+/*
+|--------------------------------------------------------------------------
+| NUEVO MENÚ DE SOLICITUDES DE BAUTISMO
+|--------------------------------------------------------------------------
+|
+| Permite acceder a:
+| - Nueva solicitud
+| - Mis solicitudes
+| - Consultar fechas y horarios
+| - Seguimiento de solicitudes
+|
+*/
+
+Route::get('/solicitudes/menu', function () use (
+    $obtenerUsuario,
+    $esPersonalAdministrativo,
+    $esCliente
+) {
+
+    $usuario = $obtenerUsuario();
+
+    if (
+        !$esCliente($usuario) &&
+        !$esPersonalAdministrativo($usuario)
+    ) {
+        abort(
+            403,
+            'No tienes permiso para acceder a las solicitudes.'
+        );
+    }
+
+    return view('solicitudes.menu');
+
+})
+    ->middleware('auth')
+    ->name('solicitudes.menu');
 
 /*
 |--------------------------------------------------------------------------
-| RUTAS DE ADMINISTRACION CRUD
+| SOLICITUDES DE BAUTISMO
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth')
+    ->prefix('solicitudes')
+    ->name('solicitudes.')
+    ->controller(SolicitudBautismoController::class)
+    ->group(function () {
+
+        /*
+        |--------------------------------------------------------------
+        | NUEVA SOLICITUD
+        |--------------------------------------------------------------
+        */
+
+        Route::get('/nueva', 'crear')
+            ->name('crear');
+
+        /*
+        |--------------------------------------------------------------
+        | GUARDAR SOLICITUD
+        |--------------------------------------------------------------
+        */
+
+        Route::post('/', 'guardar')
+            ->name('guardar');
+
+        /*
+        |--------------------------------------------------------------
+        | MIS SOLICITUDES
+        |--------------------------------------------------------------
+        */
+
+        Route::get('/mis', 'misSolicitudes')
+            ->name('mis');
+
+        /*
+        |--------------------------------------------------------------
+        | DESCARGAR DOCUMENTOS
+        |--------------------------------------------------------------
+        */
+
+        Route::get(
+            '/documentos/{id}',
+            'descargarDocumento'
+        )
+            ->whereNumber('id')
+            ->name('documentos.descargar');
+
+        /*
+        |--------------------------------------------------------------
+        | RESPONDER PROPUESTA DEL SACERDOTE
+        |--------------------------------------------------------------
+        */
+
+        Route::post(
+            '/propuestas/{id}/responder',
+            'responderPropuesta'
+        )
+            ->whereNumber('id')
+            ->name('propuestas.responder');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| ADMINISTRACIÓN CRUD
 |--------------------------------------------------------------------------
 |
-| Todas las operaciones requieren autenticacion.
-| Los permisos especificos se validan en CrudController.
+| El controlador debe seguir validando los permisos
+| de cada módulo y operación.
 |
 */
 
@@ -222,77 +309,97 @@ Route::middleware('auth')
     ->controller(CrudController::class)
     ->group(function () {
 
-        // Mostrar registros.
         Route::get('/', 'index')
             ->name('index');
 
-        // Mostrar formulario de creacion.
         Route::get('/crear', 'create')
             ->name('create');
 
-        // Guardar registro nuevo.
         Route::post('/', 'store')
             ->name('store');
 
-        // Mostrar formulario de edicion.
         Route::get('/{record}/editar', 'edit')
             ->name('edit');
 
-        // Mostrar detalles del registro.
         Route::get('/{record}', 'show')
             ->name('show');
 
-        // Actualizar registro.
         Route::put('/{record}', 'update')
             ->name('update');
 
-        // Eliminar registro.
         Route::delete('/{record}', 'destroy')
             ->name('destroy');
     });
 
 /*
 |--------------------------------------------------------------------------
-| ADMINISTRACION DE ROLES Y PERMISOS
+| ADMINISTRACIÓN DE ROLES Y PERMISOS
 |--------------------------------------------------------------------------
+|
+| El controlador debe verificar que el usuario
+| tenga autorización para cada operación.
+|
 */
 
 Route::middleware('auth')
     ->prefix('administracion')
     ->name('admin.')
-    ->controller(
-        \App\Http\Controllers\AdministracionPermisosController::class
-    )
+    ->controller(AdministracionPermisosController::class)
     ->group(function () {
 
-        // Mostrar matriz de permisos.
         Route::get(
             '/permisos',
             'index'
         )->name('permisos');
 
-        // Actualizar permisos de un rol.
         Route::put(
             '/permisos/{idRol}',
             'actualizarPermisos'
         )->name('permisos.actualizar');
 
-        // Mostrar usuarios.
         Route::get(
             '/usuarios',
             'usuarios'
         )->name('usuarios');
 
-        // Cambiar rol de un usuario.
         Route::put(
             '/usuarios/{idUsuario}/rol',
             'actualizarRol'
         )->name('usuarios.rol');
 
-        // Activar o desactivar usuario.
         Route::patch(
             '/usuarios/{idUsuario}/estado',
             'cambiarEstado'
         )->name('usuarios.estado');
+    });
+/*
+|--------------------------------------------------------------------------
+| REVISIÓN DE SOLICITUDES POR EL SACERDOTE
+|--------------------------------------------------------------------------
+*/
 
+Route::middleware('auth')
+    ->prefix('revision-bautizos')
+    ->name('revision.')
+    ->controller(RevisionBautismoController::class)
+    ->group(function () {
+
+        Route::get('/', 'index')
+            ->name('index');
+
+        Route::get('/{id}', 'show')
+            ->whereNumber('id')
+            ->name('show');
+
+        Route::post('/{id}/aprobar', 'aprobar')
+            ->whereNumber('id')
+            ->name('aprobar');
+
+        Route::post('/{id}/rechazar', 'rechazar')
+            ->whereNumber('id')
+            ->name('rechazar');
+
+        Route::post('/{id}/proponer-cambio', 'proponerCambio')
+            ->whereNumber('id')
+            ->name('proponer');
     });

@@ -13,38 +13,18 @@ use Illuminate\Validation\ValidationException;
 
 class SolicitudBautismoController extends Controller
 {
-    // Horarios fijos de ceremonia.
     private const HORARIOS = ['11:00', '12:00', '13:00'];
-
-    // Máximo de bautismos por horario.
     private const CUPO_MAXIMO = 2;
 
-    /*
-    |--------------------------------------------------------------------------
-    | USUARIO AUTENTICADO
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // USUARIO AUTENTICADO
+    // =====================================================
 
     private function usuarioId(): int
     {
         abort_unless(Auth::check(), 401);
 
         return (int) Auth::user()->id_usuario;
-    }
-
-    private function personaId(): int
-    {
-        $id = DB::table('usuarios')
-            ->where('id_usuario', $this->usuarioId())
-            ->value('id_persona');
-
-        abort_unless(
-            $id,
-            403,
-            'Tu cuenta no tiene una persona vinculada.'
-        );
-
-        return (int) $id;
     }
 
     private function esPersonalAutorizado(): bool
@@ -70,17 +50,15 @@ class SolicitudBautismoController extends Controller
         abort_unless(
             $solicitud,
             404,
-            'La solicitud no existe.'
+            'La solicitud no existe o no te pertenece.'
         );
 
         return $solicitud;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDAR FECHA Y HORARIO DE CEREMONIA
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // VALIDAR FECHA DE CEREMONIA
+    // =====================================================
 
     private function validarFechaCeremonia(
         string $fecha,
@@ -103,15 +81,9 @@ class SolicitudBautismoController extends Controller
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CONTAR BAUTISMOS REGISTRADOS EN UN HORARIO
-    |--------------------------------------------------------------------------
-    |
-    | No se cuentan las citas canceladas o reprogramadas
-    | ni las solicitudes rechazadas o canceladas.
-    |
-    */
+    // =====================================================
+    // CONTAR BAUTISMOS POR HORARIO
+    // =====================================================
 
     private function ocupacionHorario(
         int $idHorario,
@@ -152,16 +124,9 @@ class SolicitudBautismoController extends Controller
             ->count();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | OBTENER O CREAR HORARIO
-    |--------------------------------------------------------------------------
-    |
-    | La fecha es libre.
-    | Los horarios son fijos.
-    | Cada horario admite máximo 2 bautismos.
-    |
-    */
+    // =====================================================
+    // OBTENER O CREAR HORARIO
+    // =====================================================
 
     private function obtenerOCrearHorario(
         string $fecha,
@@ -172,7 +137,6 @@ class SolicitudBautismoController extends Controller
         $inicio = Carbon::parse($fecha . ' ' . $hora);
         $fin = $inicio->copy()->addHour();
 
-        // Crear el horario únicamente si todavía no existe.
         DB::table('horarios_bautizo')->insertOrIgnore([
             'fecha' => $fecha,
             'hora_inicio' => $inicio->format('H:i:s'),
@@ -181,13 +145,9 @@ class SolicitudBautismoController extends Controller
             'disponible' => true,
         ]);
 
-        // Bloquear el horario durante la transacción.
         $horario = DB::table('horarios_bautizo')
             ->where('fecha', $fecha)
-            ->where(
-                'hora_inicio',
-                $inicio->format('H:i:s')
-            )
+            ->where('hora_inicio', $inicio->format('H:i:s'))
             ->lockForUpdate()
             ->first();
 
@@ -207,11 +167,9 @@ class SolicitudBautismoController extends Controller
         return $horario;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDAR CUPO DE CEREMONIA
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // VALIDAR CUPO MÁXIMO DE DOS BAUTISMOS
+    // =====================================================
 
     private function validarCupo(
         object $horario,
@@ -222,8 +180,6 @@ class SolicitudBautismoController extends Controller
             $excluirSolicitud
         );
 
-        // El máximo permitido es 2, aunque exista
-        // un valor superior en la base de datos.
         $capacidad = min(
             self::CUPO_MAXIMO,
             (int) $horario->capacidad
@@ -232,21 +188,15 @@ class SolicitudBautismoController extends Controller
         if ($ocupados >= $capacidad) {
             throw ValidationException::withMessages([
                 'hora_ceremonia' =>
-                    'Este horario ya tiene 2 bautismos registrados. ' .
-                    'Selecciona otra fecha u horario.',
+                    'Este horario ya alcanzó su capacidad máxima de ' .
+                    '2 bautismos. Selecciona otra fecha u horario.',
             ]);
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDAR PLÁTICA PREBAUTISMAL
-    |--------------------------------------------------------------------------
-    |
-    | No se comprueba cupo.
-    | La plática debe ser anterior al día del bautismo.
-    |
-    */
+    // =====================================================
+    // VALIDAR PLÁTICA PREBAUTISMAL
+    // =====================================================
 
     private function validarPlatica(
         int $idPlatica,
@@ -289,11 +239,9 @@ class SolicitudBautismoController extends Controller
         return $platica;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MOSTRAR FORMULARIO DE SOLICITUD
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // MOSTRAR FORMULARIO
+    // =====================================================
 
     public function crear()
     {
@@ -301,11 +249,7 @@ class SolicitudBautismoController extends Controller
             ->where('disponible', true)
             ->where(function ($consulta) {
                 $consulta
-                    ->where(
-                        'fecha',
-                        '>',
-                        today()->toDateString()
-                    )
+                    ->where('fecha', '>', today()->toDateString())
                     ->orWhere(function ($subconsulta) {
                         $subconsulta
                             ->where(
@@ -323,56 +267,40 @@ class SolicitudBautismoController extends Controller
             ->orderBy('hora_inicio')
             ->get();
 
-        return view(
-            'solicitudes.crear',
-            compact('platicas')
-        );
+        return view('solicitudes.crear', compact('platicas'));
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GUARDAR SOLICITUD COMPLETA
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // GUARDAR SOLICITUD
+    // =====================================================
 
     public function guardar(Request $request)
     {
         $data = $request->validate([
-            // Menor.
-            'menor.nombre' =>
-                'required|string|max:100',
 
-            'menor.apellido_paterno' =>
-                'required|string|max:100',
-
-            'menor.apellido_materno' =>
-                'nullable|string|max:100',
-
+            // Datos del menor
+            'menor.nombre' => 'required|string|max:100',
+            'menor.apellido_paterno' => 'required|string|max:100',
+            'menor.apellido_materno' => 'nullable|string|max:100',
             'menor.fecha_nacimiento' =>
                 'required|date|before_or_equal:today',
-
             'menor.sexo' =>
                 'required|in:masculino,femenino,otro',
-
             'menor.lugar_nacimiento' =>
                 'required|string|max:150',
 
             'acta_nacimiento' =>
-                'required|file|mimes:pdf|max:5120',
+                'required|file|mimes:pdf|max:20480',
 
-            // Responsable principal.
-            'padre.nombre' =>
-                'required|string|max:100',
-
+            // Padre o tutor principal
+            // Ya NO tiene que coincidir con el usuario autenticado
+            'padre.nombre' => 'required|string|max:100',
             'padre.apellido_paterno' =>
                 'required|string|max:100',
-
             'padre.apellido_materno' =>
                 'nullable|string|max:100',
-
             'padre.telefono' =>
                 'required|string|max:15',
-
             'padre.parentesco' => [
                 'required',
                 Rule::in([
@@ -382,73 +310,60 @@ class SolicitudBautismoController extends Controller
                 ]),
             ],
 
-            // Segundo tutor opcional.
+            // Segundo tutor opcional
             'segundo_tutor.nombre' =>
                 'nullable|required_with:segundo_tutor.apellido_paterno|string|max:100',
-
             'segundo_tutor.apellido_paterno' =>
                 'nullable|required_with:segundo_tutor.nombre|string|max:100',
-
             'segundo_tutor.apellido_materno' =>
                 'nullable|string|max:100',
-
             'segundo_tutor.telefono' =>
                 'nullable|string|max:15',
-
             'segundo_tutor.parentesco' =>
                 'nullable|string|max:50',
 
-            // Padrinos.
+            // Tipo de padrinos
             'tipo_padrinos' =>
                 'required|in:pareja,unico',
-
             'tipo_unico' =>
                 'required_if:tipo_padrinos,unico|nullable|in:padrino,madrina',
 
+            // Primer padrino o madrina
             'padrino.nombre' =>
                 'required|string|max:100',
-
             'padrino.apellido_paterno' =>
                 'required|string|max:100',
-
             'padrino.apellido_materno' =>
                 'nullable|string|max:100',
-
             'padrino.telefono' =>
                 'required|string|max:15',
-
             'padrino.estado_civil' =>
                 'nullable|string|max:50',
 
-            // Segundo padrino o madrina.
+            // Segundo padrino o madrina
             'madrina.nombre' =>
                 'required_if:tipo_padrinos,pareja|nullable|string|max:100',
-
             'madrina.apellido_paterno' =>
                 'required_if:tipo_padrinos,pareja|nullable|string|max:100',
-
             'madrina.apellido_materno' =>
                 'nullable|string|max:100',
-
             'madrina.telefono' =>
                 'required_if:tipo_padrinos,pareja|nullable|string|max:15',
-
             'madrina.estado_civil' =>
                 'nullable|string|max:50',
 
             'acta_matrimonio' =>
-                'required_if:tipo_padrinos,pareja|nullable|file|mimes:pdf|max:5120',
+                'required_if:tipo_padrinos,pareja|nullable|file|mimes:pdf|max:20480',
 
-            // Ceremonia.
+            // Ceremonia
             'fecha_ceremonia' =>
                 'required|date|after_or_equal:today',
-
             'hora_ceremonia' => [
                 'required',
                 Rule::in(self::HORARIOS),
             ],
 
-            // Plática.
+            // Plática
             'id_platica' =>
                 'required|integer|exists:platicas_prebautismales,id_platica',
 
@@ -464,25 +379,34 @@ class SolicitudBautismoController extends Controller
                 $data,
                 &$archivosGuardados
             ) {
+
                 $fecha = $data['fecha_ceremonia'];
                 $hora = $data['hora_ceremonia'];
 
-                // Crear o recuperar horario.
+                // -----------------------------------------
+                // Validar horario y cupo
+                // -----------------------------------------
+
                 $horario = $this->obtenerOCrearHorario(
                     $fecha,
                     $hora
                 );
 
-                // Verificar máximo 2 bautismos.
                 $this->validarCupo($horario);
 
-                // Verificar plática anterior a ceremonia.
+                // -----------------------------------------
+                // Validar plática
+                // -----------------------------------------
+
                 $this->validarPlatica(
                     (int) $data['id_platica'],
                     $fecha
                 );
 
-                // Obtener estado Pendiente.
+                // -----------------------------------------
+                // Estado inicial: Pendiente
+                // -----------------------------------------
+
                 $estado = DB::table('estados_solicitud')
                     ->whereRaw(
                         'LOWER(nombre) = ?',
@@ -497,11 +421,9 @@ class SolicitudBautismoController extends Controller
                     ]);
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | REGISTRAR MENOR
-                |--------------------------------------------------------------------------
-                */
+                // -----------------------------------------
+                // Registrar menor
+                // -----------------------------------------
 
                 $idMenor = $this->crearPersona(
                     $data['menor'],
@@ -516,11 +438,9 @@ class SolicitudBautismoController extends Controller
                             $data['menor']['lugar_nacimiento'],
                     ], 'id_bautizado');
 
-                /*
-                |--------------------------------------------------------------------------
-                | REGISTRAR SOLICITUD
-                |--------------------------------------------------------------------------
-                */
+                // -----------------------------------------
+                // Registrar solicitud
+                // -----------------------------------------
 
                 $folio = 'BAU-' .
                     now()->format('YmdHis') .
@@ -536,75 +456,30 @@ class SolicitudBautismoController extends Controller
                         'id_estado_solicitud' => $estado,
                         'observaciones' =>
                             $data['observaciones'] ?? null,
+
+                        // La cuenta que presenta el trámite.
+                        // No tiene que ser padre o tutor.
                         'creado_por' => $this->usuarioId(),
                     ], 'id_solicitud');
 
-                /*
-                |--------------------------------------------------------------------------
-                | RESPONSABLE PRINCIPAL
-                |--------------------------------------------------------------------------
-                */
+                // =========================================
+                // RESPONSABLE PRINCIPAL
+                // =========================================
+                //
+                // CORRECCIÓN:
+                // Se crea con los datos del formulario.
+                // No se compara con la cuenta autenticada.
+                // =========================================
 
-                $idPersonaPrincipal = $this->personaId();
-
-                $personaPrincipal = DB::table('personas')
-                    ->where(
-                        'id_persona',
-                        $idPersonaPrincipal
-                    )
-                    ->lockForUpdate()
-                    ->first();
-
-                abort_unless(
-                    $personaPrincipal,
-                    403,
-                    'No existe el responsable.'
+                $idPersonaPrincipal = $this->crearPersona(
+                    $data['padre']
                 );
 
-                $normalizar = function ($texto) {
-                    return mb_strtolower(
-                        trim((string) $texto)
-                    );
-                };
-
-                if (
-                    $normalizar($personaPrincipal->nombre) !==
-                        $normalizar($data['padre']['nombre'])
-                    ||
-                    $normalizar($personaPrincipal->apellido_paterno) !==
-                        $normalizar($data['padre']['apellido_paterno'])
-                ) {
-                    throw ValidationException::withMessages([
-                        'padre.nombre' =>
-                            'Los datos del responsable deben coincidir con los de su cuenta.',
-                    ]);
-                }
-
-                DB::table('personas')
-                    ->where(
-                        'id_persona',
-                        $idPersonaPrincipal
-                    )
-                    ->update([
-                        'telefono' =>
-                            $data['padre']['telefono'],
-                    ]);
-
                 $idTutorPrincipal = DB::table('padres_tutores')
-                    ->where(
-                        'id_persona',
-                        $idPersonaPrincipal
-                    )
-                    ->value('id_padre_tutor');
-
-                if (!$idTutorPrincipal) {
-                    $idTutorPrincipal = DB::table('padres_tutores')
-                        ->insertGetId([
-                            'id_persona' =>
-                                $idPersonaPrincipal,
-                            'activo' => true,
-                        ], 'id_padre_tutor');
-                }
+                    ->insertGetId([
+                        'id_persona' => $idPersonaPrincipal,
+                        'activo' => true,
+                    ], 'id_padre_tutor');
 
                 DB::table('solicitud_tutores')->insert([
                     'id_solicitud' => $idSolicitud,
@@ -614,11 +489,9 @@ class SolicitudBautismoController extends Controller
                     'tutor_principal' => true,
                 ]);
 
-                /*
-                |--------------------------------------------------------------------------
-                | SEGUNDO TUTOR
-                |--------------------------------------------------------------------------
-                */
+                // =========================================
+                // SEGUNDO TUTOR OPCIONAL
+                // =========================================
 
                 if (
                     !empty(
@@ -645,11 +518,9 @@ class SolicitudBautismoController extends Controller
                     ]);
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | REGISTRAR PADRINOS
-                |--------------------------------------------------------------------------
-                */
+                // =========================================
+                // PADRINOS
+                // =========================================
 
                 $padrinos = [
                     [
@@ -661,9 +532,7 @@ class SolicitudBautismoController extends Controller
                     ],
                 ];
 
-                if (
-                    $data['tipo_padrinos'] === 'pareja'
-                ) {
+                if ($data['tipo_padrinos'] === 'pareja') {
                     $padrinos[] = [
                         'datos' => $data['madrina'],
                         'tipo' => 'madrina',
@@ -688,20 +557,17 @@ class SolicitudBautismoController extends Controller
                             'activo' => true,
                         ], 'id_padrino');
 
-                    DB::table('solicitud_padrinos')
-                        ->insert([
-                            'id_solicitud' => $idSolicitud,
-                            'id_padrino' => $idPadrino,
-                            'tipo_participacion' =>
-                                $item['tipo'],
-                        ]);
+                    DB::table('solicitud_padrinos')->insert([
+                        'id_solicitud' => $idSolicitud,
+                        'id_padrino' => $idPadrino,
+                        'tipo_participacion' =>
+                            $item['tipo'],
+                    ]);
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | REGISTRAR CITA
-                |--------------------------------------------------------------------------
-                */
+                // =========================================
+                // REGISTRAR CITA
+                // =========================================
 
                 DB::table('citas')->insert([
                     'id_solicitud' => $idSolicitud,
@@ -710,11 +576,9 @@ class SolicitudBautismoController extends Controller
                     'estado' => 'programada',
                 ]);
 
-                /*
-                |--------------------------------------------------------------------------
-                | REGISTRAR PLÁTICA
-                |--------------------------------------------------------------------------
-                */
+                // =========================================
+                // INSCRIPCIÓN A PLÁTICA
+                // =========================================
 
                 DB::table('inscripciones_platicas')
                     ->insert([
@@ -726,11 +590,9 @@ class SolicitudBautismoController extends Controller
                         'updated_at' => now(),
                     ]);
 
-                /*
-                |--------------------------------------------------------------------------
-                | GUARDAR DOCUMENTOS
-                |--------------------------------------------------------------------------
-                */
+                // =========================================
+                // ACTA DE NACIMIENTO
+                // =========================================
 
                 $this->guardarDocumento(
                     $request->file('acta_nacimiento'),
@@ -740,9 +602,11 @@ class SolicitudBautismoController extends Controller
                     $archivosGuardados
                 );
 
-                if (
-                    $data['tipo_padrinos'] === 'pareja'
-                ) {
+                // =========================================
+                // ACTA DE MATRIMONIO
+                // =========================================
+
+                if ($data['tipo_padrinos'] === 'pareja') {
                     $this->guardarDocumento(
                         $request->file('acta_matrimonio'),
                         $idSolicitud,
@@ -752,8 +616,9 @@ class SolicitudBautismoController extends Controller
                     );
                 }
             });
+
         } catch (\Throwable $e) {
-            // Eliminar PDFs si falla la transacción.
+
             foreach ($archivosGuardados as $ruta) {
                 Storage::disk('local')->delete($ruta);
             }
@@ -769,14 +634,9 @@ class SolicitudBautismoController extends Controller
             );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CREAR PERSONA
-    |--------------------------------------------------------------------------
-    |
-    | No se inventan fechas de nacimiento para adultos.
-    |
-    */
+    // =====================================================
+    // CREAR PERSONA
+    // =====================================================
 
     private function crearPersona(
         array $datos,
@@ -804,11 +664,9 @@ class SolicitudBautismoController extends Controller
             ], 'id_persona');
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GUARDAR DOCUMENTO PRIVADO
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // GUARDAR DOCUMENTO PRIVADO
+    // =====================================================
 
     private function guardarDocumento(
         $archivo,
@@ -866,11 +724,9 @@ class SolicitudBautismoController extends Controller
         ]);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MIS SOLICITUDES
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // MIS SOLICITUDES
+    // =====================================================
 
     public function misSolicitudes()
     {
@@ -943,18 +799,13 @@ class SolicitudBautismoController extends Controller
 
         return view(
             'solicitudes.mis',
-            compact(
-                'solicitudes',
-                'propuestas'
-            )
+            compact('solicitudes', 'propuestas')
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | DESCARGAR DOCUMENTOS PDF
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // DESCARGAR DOCUMENTO PDF
+    // =====================================================
 
     public function descargarDocumento(int $id)
     {
@@ -977,32 +828,23 @@ class SolicitudBautismoController extends Controller
         $disco = Storage::disk('local');
 
         abort_unless(
-            $disco->exists(
-                $documento->ruta_archivo
-            ),
+            $disco->exists($documento->ruta_archivo),
             404,
             'No se encontró el archivo PDF.'
         );
 
         return response()->download(
-            $disco->path(
-                $documento->ruta_archivo
-            ),
-            basename(
-                $documento->nombre_archivo
-            ),
+            $disco->path($documento->ruta_archivo),
+            basename($documento->nombre_archivo),
             [
-                'Content-Type' =>
-                    'application/pdf',
+                'Content-Type' => 'application/pdf',
             ]
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESPONDER PROPUESTA DEL SACERDOTE
-    |--------------------------------------------------------------------------
-    */
+    // =====================================================
+    // RESPONDER PROPUESTA DE CAMBIO DE CITA
+    // =====================================================
 
     public function responderPropuesta(
         Request $request,
@@ -1013,10 +855,8 @@ class SolicitudBautismoController extends Controller
                 'required|in:aceptar,rechazar',
         ]);
 
-        DB::transaction(function () use (
-            $id,
-            $data
-        ) {
+        DB::transaction(function () use ($id, $data) {
+
             $propuesta = DB::table(
                 'propuestas_cambio_cita'
             )
@@ -1040,12 +880,9 @@ class SolicitudBautismoController extends Controller
                 'Esta propuesta ya fue respondida.'
             );
 
-            if (
-                $data['respuesta'] === 'aceptar'
-            ) {
-                $horario = DB::table(
-                    'horarios_bautizo'
-                )
+            if ($data['respuesta'] === 'aceptar') {
+
+                $horario = DB::table('horarios_bautizo')
                     ->where(
                         'id_horario',
                         $propuesta->id_horario_propuesto
@@ -1061,11 +898,7 @@ class SolicitudBautismoController extends Controller
 
                 $this->validarFechaCeremonia(
                     $horario->fecha,
-                    substr(
-                        $horario->hora_inicio,
-                        0,
-                        5
-                    )
+                    substr($horario->hora_inicio, 0, 5)
                 );
 
                 if (!$horario->disponible) {
@@ -1097,7 +930,6 @@ class SolicitudBautismoController extends Controller
                     false
                 );
 
-                // Verificar nuevamente el máximo de 2.
                 $this->validarCupo(
                     $horario,
                     (int) $propuesta->id_solicitud
@@ -1114,18 +946,13 @@ class SolicitudBautismoController extends Controller
                         'estado' => 'programada',
                     ]);
 
-                // Cerrar otras propuestas pendientes.
-                DB::table(
-                    'propuestas_cambio_cita'
-                )
+                // Cerrar otras propuestas pendientes
+                DB::table('propuestas_cambio_cita')
                     ->where(
                         'id_solicitud',
                         $propuesta->id_solicitud
                     )
-                    ->where(
-                        'estado',
-                        'pendiente'
-                    )
+                    ->where('estado', 'pendiente')
                     ->where(
                         'id_propuesta',
                         '!=',
@@ -1138,13 +965,8 @@ class SolicitudBautismoController extends Controller
                     ]);
             }
 
-            DB::table(
-                'propuestas_cambio_cita'
-            )
-                ->where(
-                    'id_propuesta',
-                    $id
-                )
+            DB::table('propuestas_cambio_cita')
+                ->where('id_propuesta', $id)
                 ->update([
                     'estado' =>
                         $data['respuesta'] === 'aceptar'

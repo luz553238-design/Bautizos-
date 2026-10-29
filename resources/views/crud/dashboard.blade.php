@@ -10,19 +10,58 @@
 
     $nombreUsuario = $usuarioActual->nombre_usuario ?? 'Usuario';
 
+    /*
+    |--------------------------------------------------------------------------
+    | OBTENER ROLES DEL USUARIO
+    |--------------------------------------------------------------------------
+    */
+
     $rolesActuales = \Illuminate\Support\Facades\DB::table('usuario_rol as ur')
         ->join('roles as r', 'ur.id_rol', '=', 'r.id_rol')
         ->where('ur.id_usuario', $usuarioActual->getAuthIdentifier())
         ->pluck('r.nombre')
+        ->map(function ($rol) {
+            return mb_strtolower(trim($rol));
+        })
         ->all();
 
-    $esSuperadmin = in_array('superadministrador', $rolesActuales);
+    $esSuperadmin = in_array(
+        'superadministrador',
+        $rolesActuales,
+        true
+    );
+
+    $esSacerdote = in_array(
+        'sacerdote',
+        $rolesActuales,
+        true
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | PERMISO PARA REVISAR SOLICITUDES
+    |--------------------------------------------------------------------------
+    |
+    | Solo sacerdotes y superadministradores.
+    |
+    */
+
+    $puedeRevisarSolicitudes = $esSuperadmin || $esSacerdote;
+
+    /*
+    |--------------------------------------------------------------------------
+    | OBTENER MÓDULOS PERMITIDOS
+    |--------------------------------------------------------------------------
+    */
 
     $modulosPermitidos = [];
 
     if ($esSuperadmin) {
+
         $modulosPermitidos = array_keys($modules);
+
     } else {
+
         $modulosPermitidos = \Illuminate\Support\Facades\DB::table('usuario_rol as ur')
             ->join('rol_permiso as rp', 'ur.id_rol', '=', 'rp.id_rol')
             ->join('permisos as p', 'rp.id_permiso', '=', 'p.id_permiso')
@@ -41,13 +80,25 @@
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | FILTRAR MÓDULOS DEL DASHBOARD
+    |--------------------------------------------------------------------------
+    */
+
     $modulosDashboard = array_filter(
         $modules,
         function ($definition, $name) use ($modulosPermitidos) {
-            return in_array($name, $modulosPermitidos);
+            return in_array($name, $modulosPermitidos, true);
         },
         ARRAY_FILTER_USE_BOTH
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | MÓDULOS PARA ESTADÍSTICAS
+    |--------------------------------------------------------------------------
+    */
 
     $modulosEstadisticas = [
         'personas',
@@ -56,9 +107,16 @@
         'bautismos'
     ];
 
+    /*
+    |--------------------------------------------------------------------------
+    | PERMISO PARA CREAR SOLICITUDES DESDE EL CRUD
+    |--------------------------------------------------------------------------
+    */
+
     $puedeCrearSolicitud = $esSuperadmin;
 
     if (!$puedeCrearSolicitud) {
+
         $puedeCrearSolicitud = \Illuminate\Support\Facades\DB::table('usuario_rol as ur')
             ->join('rol_permiso as rp', 'ur.id_rol', '=', 'rp.id_rol')
             ->join('permisos as p', 'rp.id_permiso', '=', 'p.id_permiso')
@@ -67,7 +125,123 @@
             ->where('p.accion', 'crear')
             ->exists();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CONTAR SOLICITUDES PENDIENTES
+    |--------------------------------------------------------------------------
+    */
+
+    $solicitudesPendientes = 0;
+
+    if ($puedeRevisarSolicitudes) {
+
+        $solicitudesPendientes = \Illuminate\Support\Facades\DB::table(
+            'solicitudes_bautismo as s'
+        )
+            ->join(
+                'estados_solicitud as e',
+                'e.id_estado_solicitud',
+                '=',
+                's.id_estado_solicitud'
+            )
+            ->whereRaw(
+                'LOWER(TRIM(e.nombre)) = ?',
+                ['pendiente']
+            )
+            ->count();
+    }
 @endphp
+
+<style>
+    .revision-destacada {
+        margin: 25px 0 35px;
+        padding: 25px;
+        border-radius: 16px;
+        border: 1px solid #e4d5eb;
+        background: linear-gradient(
+            135deg,
+            #f4eaf8,
+            #ffffff
+        );
+    }
+
+    .revision-contenido {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .revision-informacion {
+        flex: 1;
+        min-width: 250px;
+    }
+
+    .revision-icono {
+        font-size: 30px;
+        color: #79527e;
+        margin-bottom: 12px;
+    }
+
+    .revision-titulo {
+        color: #352641;
+        font-size: 23px;
+        font-weight: 700;
+        margin: 0 0 10px;
+    }
+
+    .revision-descripcion {
+        color: #66586e;
+        font-size: 14px;
+        line-height: 1.7;
+        margin: 0;
+    }
+
+    .revision-contador {
+        display: inline-block;
+        margin-top: 15px;
+        padding: 8px 13px;
+        border-radius: 20px;
+        background: #fff0cf;
+        color: #885c00;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .revision-boton {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        background: #79527e;
+        color: white !important;
+        padding: 14px 20px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+        transition: background .2s;
+    }
+
+    .revision-boton:hover {
+        background: #603e66;
+        color: white;
+    }
+
+    @media (max-width: 700px) {
+        .revision-destacada {
+            padding: 20px;
+        }
+
+        .revision-boton {
+            width: 100%;
+        }
+    }
+</style>
+
+<!-- ENCABEZADO PRINCIPAL -->
 
 <section class="hero">
 
@@ -88,6 +262,7 @@
     <div class="dashboard-actions">
 
         @if($puedeCrearSolicitud)
+
             <a
                 class="dashboard-button dashboard-button-primary"
                 href="{{ route('crud.create', ['module' => 'solicitudes_bautismo']) }}"
@@ -95,9 +270,11 @@
                 <i class="bi bi-plus-circle"></i>
                 Nueva solicitud
             </a>
+
         @endif
 
-        @if(in_array('personas', $modulosPermitidos))
+        @if(in_array('personas', $modulosPermitidos, true))
+
             <a
                 class="dashboard-button dashboard-button-secondary"
                 href="{{ route('crud.index', ['module' => 'personas']) }}"
@@ -105,17 +282,84 @@
                 <i class="bi bi-people"></i>
                 Ver personas
             </a>
+
+        @endif
+
+        <!-- BOTÓN DE REVISIÓN DE BAUTISMOS -->
+
+        @if($puedeRevisarSolicitudes)
+
+            <a
+                class="dashboard-button dashboard-button-secondary"
+                href="{{ route('revision.index') }}"
+            >
+                <i class="bi bi-clipboard-check"></i>
+                Revisar solicitudes
+            </a>
+
         @endif
 
     </div>
 
 </section>
 
+<!-- ACCESO DESTACADO A REVISIÓN -->
+
+@if($puedeRevisarSolicitudes)
+
+    <section class="revision-destacada">
+
+        <div class="revision-contenido">
+
+            <div class="revision-informacion">
+
+                <div class="revision-icono">
+                    <i class="bi bi-clipboard2-check"></i>
+                </div>
+
+                <h2 class="revision-titulo">
+                    Revisión de solicitudes de bautismo
+                </h2>
+
+                <p class="revision-descripcion">
+                    Consulta las solicitudes registradas por los clientes,
+                    revisa sus documentos y administra las autorizaciones
+                    de las ceremonias de bautismo.
+                </p>
+
+                <span class="revision-contador">
+                    {{ $solicitudesPendientes }}
+                    {{ $solicitudesPendientes === 1
+                        ? 'solicitud pendiente'
+                        : 'solicitudes pendientes' }}
+                </span>
+
+            </div>
+
+            <a
+                href="{{ route('revision.index') }}"
+                class="revision-boton"
+            >
+                <i class="bi bi-arrow-right-circle"></i>
+                Abrir revisión
+            </a>
+
+        </div>
+
+    </section>
+
+@endif
+
+<!-- ESTADÍSTICAS -->
+
 <div class="dashboard-grid">
 
     @foreach($modulosEstadisticas as $key)
 
-        @if(isset($modules[$key]) && in_array($key, $modulosPermitidos))
+        @if(
+            isset($modules[$key]) &&
+            in_array($key, $modulosPermitidos, true)
+        )
 
             <div class="dashboard-stat">
 
@@ -138,6 +382,8 @@
     @endforeach
 
 </div>
+
+<!-- MÓDULOS DE ADMINISTRACIÓN -->
 
 <h2 class="dashboard-section-title">
     <i class="bi bi-grid"></i>
