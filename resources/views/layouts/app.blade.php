@@ -656,6 +656,7 @@
 <body>
 
     @php
+
         /*
         |--------------------------------------------------------------------------
         | USUARIO AUTENTICADO
@@ -669,17 +670,28 @@
         $rolesActuales = [];
 
         $esSuperadmin = false;
+        $esAdministrador = false;
         $esCliente = false;
 
         if ($usuarioActual) {
+
             $rolesActuales = \Illuminate\Support\Facades\DB::table('usuario_rol as ur')
                 ->join('roles as r', 'ur.id_rol', '=', 'r.id_rol')
-                ->where('ur.id_usuario', $usuarioActual->getAuthIdentifier())
+                ->where(
+                    'ur.id_usuario',
+                    $usuarioActual->getAuthIdentifier()
+                )
                 ->pluck('r.nombre')
                 ->all();
 
             $esSuperadmin = in_array(
                 'superadministrador',
+                $rolesActuales,
+                true
+            );
+
+            $esAdministrador = in_array(
+                'administrador',
                 $rolesActuales,
                 true
             );
@@ -691,9 +703,33 @@
             );
         }
 
+        $esPersonalAdministrativo = count(
+            array_intersect(
+                $rolesActuales,
+                [
+                    'superadministrador',
+                    'administrador',
+                    'secretaria',
+                    'sacerdote'
+                ]
+            )
+        ) > 0;
+
+        $esClienteSinAdministracion =
+            $esCliente && !$esPersonalAdministrativo;
+
+        $puedeAdministrarIglesias =
+            $esSuperadmin || $esAdministrador;
+
         $rolActual = $esSuperadmin
             ? 'Superadministrador'
-            : ucfirst(str_replace('_', ' ', $rolesActuales[0] ?? 'Usuario'));
+            : ucfirst(
+                str_replace(
+                    '_',
+                    ' ',
+                    $rolesActuales[0] ?? 'Usuario'
+                )
+            );
 
         $inicial = mb_strtoupper(
             mb_substr($nombreUsuario, 0, 1)
@@ -701,36 +737,69 @@
 
         /*
         |--------------------------------------------------------------------------
-        | MÓDULOS DEL SISTEMA
+        | MÓDULOS CRUD VISIBLES
+        |--------------------------------------------------------------------------
+        |
+        | Direcciones se sustituye por el módulo independiente
+        | Iglesias y direcciones.
+        |
+        | Se mantienen ocultos:
+        | sacerdotes, secretarias, estados_solicitud,
+        | solicitud_padrinos, tipos_documento, documentos,
+        | citas, historial_citas, bautismos, roles,
+        | usuario_rol y direcciones.
+        |
+        | Las tablas siguen existiendo en la base de datos.
         |--------------------------------------------------------------------------
         */
 
         $modulos = [
-            'personas' => ['Personas', 'bi-people'],
-            'direcciones' => ['Direcciones', 'bi-geo-alt'],
-            'usuarios' => ['Usuarios', 'bi-person-badge'],
-            'roles' => ['Roles', 'bi-shield-lock'],
-            'usuario_rol' => ['Usuario rol', 'bi-person-gear'],
-            'sacerdotes' => ['Sacerdotes', 'bi-person-vcard'],
-            'secretarias' => ['Secretarias', 'bi-person-workspace'],
-            'padres_tutores' => ['Padres y tutores', 'bi-people-fill'],
-            'padrinos' => ['Padrinos', 'bi-person-heart'],
-            'bautizados' => ['Bautizados', 'bi-person-check'],
-            'estados_solicitud' => ['Estados de solicitud', 'bi-list-check'],
-            'solicitudes_bautismo' => ['Solicitudes de bautismo', 'bi-file-earmark-text'],
-            'solicitud_tutores' => ['Solicitud de tutores', 'bi-person-lines-fill'],
-            'solicitud_padrinos' => ['Solicitud de padrinos', 'bi-person-vcard-fill'],
-            'tipos_documento' => ['Tipos de documento', 'bi-folder2'],
-            'documentos' => ['Documentos', 'bi-files'],
-            'horarios_bautizo' => ['Horarios', 'bi-clock-history'],
-            'citas' => ['Citas', 'bi-calendar2-check'],
-            'historial_citas' => ['Historial de citas', 'bi-clock-history'],
-            'bautismos' => ['Bautismos', 'bi-bookmark-check']
+
+            'personas' => [
+                'Personas',
+                'bi-people'
+            ],
+
+            'usuarios' => [
+                'Usuarios',
+                'bi-person-badge'
+            ],
+
+            'padres_tutores' => [
+                'Padres y tutores',
+                'bi-people-fill'
+            ],
+
+            'padrinos' => [
+                'Padrinos',
+                'bi-person-heart'
+            ],
+
+            'bautizados' => [
+                'Bautizados',
+                'bi-person-check'
+            ],
+
+            'solicitudes_bautismo' => [
+                'Solicitudes de bautismo',
+                'bi-file-earmark-text'
+            ],
+
+            'solicitud_tutores' => [
+                'Solicitud de tutores',
+                'bi-person-lines-fill'
+            ],
+
+            'horarios_bautizo' => [
+                'Horarios',
+                'bi-clock-history'
+            ]
+
         ];
 
         /*
         |--------------------------------------------------------------------------
-        | PERMISOS DEL MENÚ
+        | PERMISOS DE LOS MÓDULOS CRUD
         |--------------------------------------------------------------------------
         */
 
@@ -740,7 +809,7 @@
 
             $modulosVisibles = array_keys($modulos);
 
-        } elseif ($usuarioActual && !$esCliente) {
+        } elseif ($usuarioActual && !$esClienteSinAdministracion) {
 
             $modulosVisibles = \Illuminate\Support\Facades\DB::table('usuario_rol as ur')
                 ->join(
@@ -766,11 +835,12 @@
 
             $modulosVisibles = array_values(
                 array_intersect(
-                    $modulosVisibles,
-                    array_keys($modulos)
+                    array_keys($modulos),
+                    $modulosVisibles
                 )
             );
 
+            // Usuarios es exclusivo del superadministrador.
             $modulosVisibles = array_values(
                 array_diff(
                     $modulosVisibles,
@@ -793,13 +863,36 @@
 
         $tituloPagina = 'Panel de administración';
 
-        if ($moduloActual && isset($modulos[$moduloActual])) {
+        if (
+            $moduloActual &&
+            isset($modulos[$moduloActual])
+        ) {
 
             $tituloPagina = $modulos[$moduloActual][0];
+
+        } elseif (request()->routeIs('iglesias.*')) {
+
+            $tituloPagina = 'Iglesias y direcciones';
 
         } elseif (request()->routeIs('cliente.*')) {
 
             $tituloPagina = 'Mi espacio';
+
+        } elseif (request()->routeIs('solicitudes.*')) {
+
+            $tituloPagina = 'Solicitudes de bautismo';
+
+        } elseif (request()->routeIs('revision.*')) {
+
+            $tituloPagina = 'Revisión de solicitudes';
+
+        } elseif (request()->routeIs('bautismos.historial')) {
+
+            $tituloPagina = 'Historial de bautismos';
+
+        } elseif (request()->routeIs('bautismos.*')) {
+
+            $tituloPagina = 'Registro de bautismos';
 
         } elseif (request()->routeIs('admin.usuarios*')) {
 
@@ -808,12 +901,15 @@
         } elseif (request()->routeIs('admin.permisos*')) {
 
             $tituloPagina = 'Administración de permisos';
+
         }
+
     @endphp
 
     <div class="app-shell">
 
         <!-- CAPA PARA EL MENÚ MÓVIL -->
+
         <div
             class="sidebar-overlay"
             id="sidebarOverlay"
@@ -852,7 +948,7 @@
                     Navegación principal
                 </div>
 
-                @if($esCliente && !$esSuperadmin)
+                @if($esClienteSinAdministracion)
 
                     @if(Route::has('cliente.dashboard'))
 
@@ -866,17 +962,40 @@
 
                     @endif
 
+                    @if(Route::has('solicitudes.menu'))
+
+                        <a
+                            href="{{ route('solicitudes.menu') }}"
+                            class="navigation-link {{ request()->routeIs('solicitudes.*') ? 'active' : '' }}"
+                        >
+                            <i class="bi bi-file-earmark-text"></i>
+                            <span>Mis solicitudes</span>
+                        </a>
+
+                    @endif
+
                 @else
 
-                    <a
-                        href="{{ route('dashboard') }}"
-                        class="navigation-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
-                    >
-                        <i class="bi bi-grid-1x2"></i>
-                        <span>Menú principal</span>
-                    </a>
+                    <!-- PANEL PRINCIPAL -->
 
-                    @if(count($modulosVisibles) > 0)
+                    @if(Route::has('dashboard'))
+
+                        <a
+                            href="{{ route('dashboard') }}"
+                            class="navigation-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
+                        >
+                            <i class="bi bi-grid-1x2"></i>
+                            <span>Menú principal</span>
+                        </a>
+
+                    @endif
+
+                    <!-- MÓDULOS CRUD -->
+
+                    @if(
+                        count($modulosVisibles) > 0 ||
+                        $puedeAdministrarIglesias
+                    )
 
                         <div class="navigation-label">
                             Gestión parroquial
@@ -901,7 +1020,29 @@
 
                         @endforeach
 
+                        <!-- NUEVO MÓDULO IGLESIAS Y DIRECCIONES -->
+
+                        @if(
+                            $puedeAdministrarIglesias &&
+                            Route::has('iglesias.index')
+                        )
+
+                            <a
+                                href="{{ route('iglesias.index') }}"
+                                class="navigation-link {{ request()->routeIs('iglesias.*') ? 'active' : '' }}"
+                            >
+                                <i class="bi bi-buildings"></i>
+
+                                <span>
+                                    Iglesias y direcciones
+                                </span>
+                            </a>
+
+                        @endif
+
                     @endif
+
+                    <!-- SEGURIDAD Y PERMISOS -->
 
                     @if($esSuperadmin)
 
@@ -939,7 +1080,10 @@
 
             </nav>
 
-            <!-- PERFIL INFERIOR -->
+            <!-- =====================================
+                 PERFIL DEL USUARIO
+            ====================================== -->
+
             <div class="sidebar-footer">
 
                 <div class="sidebar-profile">
@@ -949,6 +1093,7 @@
                     </div>
 
                     <div>
+
                         <div class="sidebar-user">
                             {{ $nombreUsuario }}
                         </div>
@@ -956,6 +1101,7 @@
                         <div class="sidebar-role">
                             {{ $rolActual }}
                         </div>
+
                     </div>
 
                 </div>
@@ -971,6 +1117,7 @@
         <main class="main">
 
             <!-- ENCABEZADO SUPERIOR -->
+
             <header class="topbar">
 
                 <div class="topbar-left">
@@ -981,11 +1128,13 @@
                         id="sidebarToggle"
                         aria-label="Abrir menú"
                         aria-controls="sidebar"
+                        aria-expanded="false"
                     >
                         <i class="bi bi-list"></i>
                     </button>
 
                     <div>
+
                         <div class="topbar-title">
                             {{ $tituloPagina }}
                         </div>
@@ -993,6 +1142,7 @@
                         <div class="topbar-subtitle">
                             Sistema de Gestión de Bautizos
                         </div>
+
                     </div>
 
                 </div>
@@ -1018,6 +1168,7 @@
                             <i class="bi bi-box-arrow-right"></i>
                             Cerrar sesión
                         </button>
+
                     </form>
 
                 </div>
@@ -1025,6 +1176,7 @@
             </header>
 
             <!-- ÁREA DE TRABAJO -->
+
             <div class="content">
 
                 @if(session('success'))
@@ -1057,6 +1209,7 @@
                         class="alert alert-danger"
                         role="alert"
                     >
+
                         <strong>
                             Revisa los siguientes errores:
                         </strong>
@@ -1064,10 +1217,13 @@
                         <ul class="mb-0 mt-2">
 
                             @foreach($errors->all() as $error)
+
                                 <li>{{ $error }}</li>
+
                             @endforeach
 
                         </ul>
+
                     </div>
 
                 @endif
@@ -1092,14 +1248,33 @@
             const overlay = document.getElementById('sidebarOverlay');
 
             function cerrarMenu() {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('open');
+
+                if (sidebar) {
+                    sidebar.classList.remove('open');
+                }
+
+                if (overlay) {
+                    overlay.classList.remove('open');
+                }
+
+                if (toggle) {
+                    toggle.setAttribute('aria-expanded', 'false');
+                }
             }
 
-            if (toggle) {
+            if (toggle && sidebar && overlay) {
+
                 toggle.addEventListener('click', function () {
-                    sidebar.classList.toggle('open');
-                    overlay.classList.toggle('open');
+
+                    const abierto = sidebar.classList.toggle('open');
+
+                    overlay.classList.toggle('open', abierto);
+
+                    toggle.setAttribute(
+                        'aria-expanded',
+                        abierto ? 'true' : 'false'
+                    );
+
                 });
             }
 
@@ -1108,14 +1283,18 @@
             }
 
             document.addEventListener('keydown', function (event) {
+
                 if (event.key === 'Escape') {
                     cerrarMenu();
                 }
+
             });
 
             document.querySelectorAll('.sidebar .navigation-link')
                 .forEach(function (enlace) {
+
                     enlace.addEventListener('click', cerrarMenu);
+
                 });
 
         });

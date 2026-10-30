@@ -6,6 +6,12 @@
 @section('crud_content')
 
 @php
+    /*
+    |--------------------------------------------------------------------------
+    | USUARIO AUTENTICADO
+    |--------------------------------------------------------------------------
+    */
+
     $usuarioActual = auth()->user();
 
     $nombreUsuario = $usuarioActual->nombre_usuario ?? 'Usuario';
@@ -25,28 +31,33 @@
         })
         ->all();
 
+    /*
+    |--------------------------------------------------------------------------
+    | IDENTIFICAR ROLES
+    |--------------------------------------------------------------------------
+    */
+
     $esSuperadmin = in_array(
         'superadministrador',
         $rolesActuales,
         true
     );
 
-    $esSacerdote = in_array(
-        'sacerdote',
+    $esAdministrador = in_array(
+        'administrador',
         $rolesActuales,
         true
     );
 
     /*
     |--------------------------------------------------------------------------
-    | PERMISO PARA REVISAR SOLICITUDES
+    | PERMISOS ADMINISTRATIVOS
     |--------------------------------------------------------------------------
-    |
-    | Solo sacerdotes y superadministradores.
-    |
     */
 
-    $puedeRevisarSolicitudes = $esSuperadmin || $esSacerdote;
+    $puedeRevisarSolicitudes = $esSuperadmin || $esAdministrador;
+
+    $puedeRegistrarBautismos = $esSuperadmin || $esAdministrador;
 
     /*
     |--------------------------------------------------------------------------
@@ -75,7 +86,9 @@
             array_diff($modulosPermitidos, [
                 'usuarios',
                 'roles',
-                'usuario_rol'
+                'usuario_rol',
+                'rol_permiso',
+                'permisos'
             ])
         );
     }
@@ -151,11 +164,99 @@
             )
             ->count();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CONTAR BAUTISMOS REGISTRADOS
+    |--------------------------------------------------------------------------
+    */
+
+    $bautismosRegistrados = 0;
+
+    if ($puedeRegistrarBautismos) {
+
+        $bautismosRegistrados = \Illuminate\Support\Facades\DB::table(
+            'bautismos'
+        )->count();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CONTAR SOLICITUDES APROBADAS SIN BAUTISMO
+    |--------------------------------------------------------------------------
+    */
+
+    $bautismosPendientesRegistro = 0;
+
+    if ($puedeRegistrarBautismos) {
+
+        $bautismosPendientesRegistro = \Illuminate\Support\Facades\DB::table(
+            'solicitudes_bautismo as s'
+        )
+            ->join(
+                'estados_solicitud as e',
+                'e.id_estado_solicitud',
+                '=',
+                's.id_estado_solicitud'
+            )
+            ->join(
+                'citas as c',
+                'c.id_solicitud',
+                '=',
+                's.id_solicitud'
+            )
+            ->join(
+                'horarios_bautizo as h',
+                'h.id_horario',
+                '=',
+                'c.id_horario'
+            )
+            ->leftJoin(
+                'bautismos as b',
+                'b.id_cita',
+                '=',
+                'c.id_cita'
+            )
+            ->whereRaw(
+                'LOWER(TRIM(e.nombre)) IN (?, ?)',
+                ['aprobada', 'autorizada']
+            )
+            ->whereNull('b.id_bautismo')
+            ->whereIn('c.estado', [
+                'programada',
+                'confirmada',
+                'reprogramada'
+            ])
+            ->whereDate('h.fecha', '<=', now()->toDateString())
+            ->count();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMPROBAR DISPONIBILIDAD DE RUTAS
+    |--------------------------------------------------------------------------
+    */
+
+    $rutaRevisionDisponible = \Illuminate\Support\Facades\Route::has(
+        'revision.index'
+    );
+
+    $rutaBautismosDisponible = \Illuminate\Support\Facades\Route::has(
+        'bautismos.index'
+    );
+
 @endphp
 
 <style>
-    .revision-destacada {
-        margin: 25px 0 35px;
+
+    /*
+    |--------------------------------------------------------------------------
+    | TARJETAS DESTACADAS
+    |--------------------------------------------------------------------------
+    */
+
+    .panel-destacado {
+        margin: 25px 0;
         padding: 25px;
         border-radius: 16px;
         border: 1px solid #e4d5eb;
@@ -164,9 +265,19 @@
             #f4eaf8,
             #ffffff
         );
+        box-shadow: 0 5px 20px rgba(65, 34, 92, 0.04);
     }
 
-    .revision-contenido {
+    .panel-destacado-bautismos {
+        background: linear-gradient(
+            135deg,
+            #edf2ff,
+            #ffffff
+        );
+        border-color: #dce2f5;
+    }
+
+    .panel-destacado-contenido {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -174,34 +285,46 @@
         flex-wrap: wrap;
     }
 
-    .revision-informacion {
+    .panel-destacado-informacion {
         flex: 1;
         min-width: 250px;
     }
 
-    .revision-icono {
+    .panel-destacado-icono {
         font-size: 30px;
         color: #79527e;
         margin-bottom: 12px;
     }
 
-    .revision-titulo {
+    .panel-destacado-titulo {
         color: #352641;
         font-size: 23px;
         font-weight: 700;
         margin: 0 0 10px;
     }
 
-    .revision-descripcion {
+    .panel-destacado-descripcion {
         color: #66586e;
         font-size: 14px;
         line-height: 1.7;
         margin: 0;
     }
 
-    .revision-contador {
-        display: inline-block;
+    /*
+    |--------------------------------------------------------------------------
+    | CONTADORES
+    |--------------------------------------------------------------------------
+    */
+
+    .panel-contadores {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
         margin-top: 15px;
+    }
+
+    .panel-contador {
+        display: inline-block;
         padding: 8px 13px;
         border-radius: 20px;
         background: #fff0cf;
@@ -210,7 +333,23 @@
         font-weight: 700;
     }
 
-    .revision-boton {
+    .panel-contador-exito {
+        background: #e4f7e9;
+        color: #166534;
+    }
+
+    .panel-contador-informacion {
+        background: #e8e9ff;
+        color: #4644a2;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | BOTONES
+    |--------------------------------------------------------------------------
+    */
+
+    .panel-destacado-boton {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -223,25 +362,53 @@
         font-weight: 700;
         text-decoration: none;
         transition: background .2s;
+        white-space: nowrap;
     }
 
-    .revision-boton:hover {
+    .panel-destacado-boton:hover {
         background: #603e66;
         color: white;
     }
 
+    .panel-destacado-boton-azul {
+        background: #5752a3;
+    }
+
+    .panel-destacado-boton-azul:hover {
+        background: #403c87;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ADAPTACIÓN A PANTALLAS PEQUEÑAS
+    |--------------------------------------------------------------------------
+    */
+
     @media (max-width: 700px) {
-        .revision-destacada {
+
+        .panel-destacado {
             padding: 20px;
         }
 
-        .revision-boton {
+        .panel-destacado-titulo {
+            font-size: 20px;
+        }
+
+        .panel-destacado-boton {
             width: 100%;
         }
+
+        .panel-destacado-informacion {
+            min-width: 100%;
+        }
+
     }
+
 </style>
 
+<!-- ========================================================= -->
 <!-- ENCABEZADO PRINCIPAL -->
+<!-- ========================================================= -->
 
 <section class="hero">
 
@@ -259,7 +426,11 @@
         del proceso de bautismo desde un solo lugar.
     </p>
 
+    <!-- BOTONES PRINCIPALES -->
+
     <div class="dashboard-actions">
+
+        <!-- CREAR SOLICITUD -->
 
         @if($puedeCrearSolicitud)
 
@@ -273,6 +444,8 @@
 
         @endif
 
+        <!-- VER PERSONAS -->
+
         @if(in_array('personas', $modulosPermitidos, true))
 
             <a
@@ -285,9 +458,9 @@
 
         @endif
 
-        <!-- BOTÓN DE REVISIÓN DE BAUTISMOS -->
+        <!-- REVISAR SOLICITUDES -->
 
-        @if($puedeRevisarSolicitudes)
+        @if($puedeRevisarSolicitudes && $rutaRevisionDisponible)
 
             <a
                 class="dashboard-button dashboard-button-secondary"
@@ -299,46 +472,66 @@
 
         @endif
 
+        <!-- REGISTRAR BAUTISMOS -->
+
+        @if($puedeRegistrarBautismos && $rutaBautismosDisponible)
+
+            <a
+                class="dashboard-button dashboard-button-secondary"
+                href="{{ route('bautismos.index') }}"
+            >
+                <i class="bi bi-journal-check"></i>
+                Registrar bautismos
+            </a>
+
+        @endif
+
     </div>
 
 </section>
 
-<!-- ACCESO DESTACADO A REVISIÓN -->
+<!-- ========================================================= -->
+<!-- REVISIÓN DE SOLICITUDES -->
+<!-- ========================================================= -->
 
-@if($puedeRevisarSolicitudes)
+@if($puedeRevisarSolicitudes && $rutaRevisionDisponible)
 
-    <section class="revision-destacada">
+    <section class="panel-destacado">
 
-        <div class="revision-contenido">
+        <div class="panel-destacado-contenido">
 
-            <div class="revision-informacion">
+            <div class="panel-destacado-informacion">
 
-                <div class="revision-icono">
+                <div class="panel-destacado-icono">
                     <i class="bi bi-clipboard2-check"></i>
                 </div>
 
-                <h2 class="revision-titulo">
+                <h2 class="panel-destacado-titulo">
                     Revisión de solicitudes de bautismo
                 </h2>
 
-                <p class="revision-descripcion">
+                <p class="panel-destacado-descripcion">
                     Consulta las solicitudes registradas por los clientes,
                     revisa sus documentos y administra las autorizaciones
                     de las ceremonias de bautismo.
                 </p>
 
-                <span class="revision-contador">
-                    {{ $solicitudesPendientes }}
-                    {{ $solicitudesPendientes === 1
-                        ? 'solicitud pendiente'
-                        : 'solicitudes pendientes' }}
-                </span>
+                <div class="panel-contadores">
+
+                    <span class="panel-contador">
+                        {{ $solicitudesPendientes }}
+                        {{ $solicitudesPendientes === 1
+                            ? 'solicitud pendiente'
+                            : 'solicitudes pendientes' }}
+                    </span>
+
+                </div>
 
             </div>
 
             <a
                 href="{{ route('revision.index') }}"
-                class="revision-boton"
+                class="panel-destacado-boton"
             >
                 <i class="bi bi-arrow-right-circle"></i>
                 Abrir revisión
@@ -350,7 +543,70 @@
 
 @endif
 
+<!-- ========================================================= -->
+<!-- REGISTRO DE BAUTISMOS -->
+<!-- ========================================================= -->
+
+@if($puedeRegistrarBautismos && $rutaBautismosDisponible)
+
+    <section class="panel-destacado panel-destacado-bautismos">
+
+        <div class="panel-destacado-contenido">
+
+            <div class="panel-destacado-informacion">
+
+                <div class="panel-destacado-icono">
+                    <i class="bi bi-journal-check"></i>
+                </div>
+
+                <h2 class="panel-destacado-titulo">
+                    Registro de bautismos realizados
+                </h2>
+
+                <p class="panel-destacado-descripcion">
+                    Registra las ceremonias de bautismo que ya se
+                    realizaron, asigna el folio del acta,
+                    número de libro, página y observaciones.
+                    Consulta los bautismos registrados.
+                </p>
+
+                <div class="panel-contadores">
+
+                    <span class="panel-contador">
+                        {{ $bautismosPendientesRegistro }}
+                        {{ $bautismosPendientesRegistro === 1
+                            ? 'bautismo pendiente de registro'
+                            : 'bautismos pendientes de registro' }}
+                    </span>
+
+                    <span class="panel-contador panel-contador-exito">
+                        {{ $bautismosRegistrados }}
+                        {{ $bautismosRegistrados === 1
+                            ? 'bautismo registrado'
+                            : 'bautismos registrados' }}
+                    </span>
+
+                </div>
+
+            </div>
+
+            <a
+                href="{{ route('bautismos.index') }}"
+                class="panel-destacado-boton panel-destacado-boton-azul"
+            >
+                <i class="bi bi-arrow-right-circle"></i>
+                Abrir registro
+            </a>
+
+        </div>
+
+    </section>
+
+@endif
+
+<!-- ========================================================= -->
 <!-- ESTADÍSTICAS -->
+<!-- ========================================================= -->
 
 <div class="dashboard-grid">
 
@@ -383,7 +639,9 @@
 
 </div>
 
+<!-- ========================================================= -->
 <!-- MÓDULOS DE ADMINISTRACIÓN -->
+<!-- ========================================================= -->
 
 <h2 class="dashboard-section-title">
     <i class="bi bi-grid"></i>
@@ -430,11 +688,16 @@
     @empty
 
         <div class="dashboard-module">
-            <h3>Sin módulos disponibles</h3>
+
+            <h3>
+                Sin módulos disponibles
+            </h3>
+
             <p>
                 Actualmente no tienes módulos de administración
                 asignados a tu rol.
             </p>
+
         </div>
 
     @endforelse

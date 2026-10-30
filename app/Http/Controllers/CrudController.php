@@ -144,7 +144,6 @@ class CrudController extends Controller
 
         if (!(bool) $usuario->activo) {
             Auth::logout();
-
             abort(403, 'Tu cuenta está desactivada.');
         }
 
@@ -349,7 +348,6 @@ class CrudController extends Controller
         }
 
         $idPersona = $usuario->id_persona;
-        $idUsuario = $usuario->id_usuario;
 
         switch ($module) {
             case 'personas':
@@ -412,11 +410,9 @@ class CrudController extends Controller
             case 'horarios_bautizo':
             case 'estados_solicitud':
             case 'tipos_documento':
-                // Catálogos generales: requieren permiso de módulo.
                 break;
 
             default:
-                // Denegar por defecto los módulos no contemplados.
                 $query->whereRaw('1 = 0');
                 break;
         }
@@ -517,8 +513,6 @@ class CrudController extends Controller
             return;
         }
 
-        // Los usuarios particulares no administran
-        // catálogos ni registros de personal.
         if (in_array($module, [
             'sacerdotes',
             'secretarias',
@@ -531,7 +525,6 @@ class CrudController extends Controller
             abort(403, 'Este registro requiere personal autorizado.');
         }
 
-        // Las personas solo pueden modificar su propia ficha.
         if ($module === 'personas') {
             abort_unless(
                 $row &&
@@ -542,8 +535,6 @@ class CrudController extends Controller
             );
         }
 
-        // No permitir crear perfiles personales
-        // de terceros mediante el CRUD genérico.
         if (in_array($module, [
             'direcciones',
             'padres_tutores',
@@ -553,8 +544,6 @@ class CrudController extends Controller
             $data['id_persona'] = $usuario->id_persona;
         }
 
-        // Las solicitudes nuevas pertenecen
-        // al usuario autenticado.
         if ($module === 'solicitudes_bautismo') {
             if ($row === null) {
                 $data['creado_por'] = $usuario->id_usuario;
@@ -566,8 +555,6 @@ class CrudController extends Controller
             }
         }
 
-        // No permitir cambiar la solicitud a la
-        // que pertenece un registro existente.
         if (
             $row &&
             in_array($module, [
@@ -580,8 +567,6 @@ class CrudController extends Controller
             $data['id_solicitud'] = $row->id_solicitud;
         }
 
-        // Las revisiones documentales las realiza
-        // exclusivamente el personal autorizado.
         if ($module === 'documentos') {
             if ($row === null) {
                 $data['estado_revision'] = 'pendiente';
@@ -600,8 +585,6 @@ class CrudController extends Controller
             }
         }
 
-        // Un usuario particular no puede modificar
-        // directamente el estado de las citas.
         if ($module === 'citas') {
             if ($row === null) {
                 $data['estado'] = 'programada';
@@ -610,8 +593,6 @@ class CrudController extends Controller
             }
         }
 
-        // Las claves foráneas deben pertenecer al
-        // ámbito de registros autorizado.
         $meta = $this->context($module)['meta'];
 
         foreach (($meta['foreign'] ?? []) as $field => $fk) {
@@ -629,24 +610,59 @@ class CrudController extends Controller
     }
 
     // =====================================================
-    // DASHBOARD
+    // DASHBOARD CORREGIDO
     // =====================================================
 
     public function dashboard()
     {
         $schema = self::schema();
 
+        /*
+        |--------------------------------------------------------------------------
+        | MÓDULOS OCULTOS DEL PANEL PRINCIPAL
+        |--------------------------------------------------------------------------
+        |
+        | Estos módulos no se muestran como tarjetas.
+        | No se eliminan tablas, registros ni rutas.
+        |
+        | Iglesias y direcciones se gestiona mediante
+        | IglesiaController y sus propias vistas.
+        |--------------------------------------------------------------------------
+        */
+
+        $modulosOcultos = [
+            'direcciones',
+            'sacerdotes',
+            'secretarias',
+            'estados_solicitud',
+            'solicitud_padrinos',
+            'tipos_documento',
+            'documentos',
+            'citas',
+            'historial_citas',
+            'bautismos',
+            'roles',
+            'usuario_rol'
+        ];
+
         $modules = [];
         $counts = [];
 
         foreach ($this->modulosPermitidos() as $name) {
+
+            if (in_array($name, $modulosOcultos, true)) {
+                continue;
+            }
+
             if (!isset($schema[$name])) {
                 continue;
             }
 
             $modules[$name] = $schema[$name];
 
-            $counts[$name] = $this->consultaVisible($name)->count();
+            $counts[$name] = $this
+                ->consultaVisible($name)
+                ->count();
         }
 
         return view(
@@ -664,7 +680,6 @@ class CrudController extends Controller
         $this->autorizarPermiso($module, 'index');
 
         $context = $this->context($module);
-
         $query = $this->consultaVisible($module);
 
         $search = trim((string) $request->query('q', ''));
@@ -739,7 +754,6 @@ class CrudController extends Controller
         }
 
         $usuario = $this->usuarioActual();
-
         $options = [];
 
         foreach (
@@ -801,12 +815,11 @@ class CrudController extends Controller
         ?object $row
     ): array {
         $meta = $this->context($module)['meta'];
-
         $usuario = $this->usuarioActual();
-
         $rules = [];
 
         foreach ($meta['columns'] as $name => $field) {
+
             if (
                 !empty($field['auto']) ||
                 !empty($field['generated'])
@@ -815,14 +828,12 @@ class CrudController extends Controller
             }
 
             $esContrasena = $name === 'contrasena';
-
             $obligatorio = !empty($field['required']);
 
             if ($row && $esContrasena) {
                 $obligatorio = false;
             }
 
-            // Campos gestionados por el servidor.
             if (
                 $this->esUsuarioParticular($usuario) &&
                 $module === 'solicitudes_bautismo' &&
@@ -904,8 +915,6 @@ class CrudController extends Controller
 
         $data = $request->validate($rules, [], $nombres);
 
-        // La contraseña vacía en edición
-        // no reemplaza la existente.
         if (array_key_exists('contrasena', $data)) {
             if (
                 is_string($data['contrasena']) &&
@@ -921,7 +930,6 @@ class CrudController extends Controller
 
         $this->validarPropiedadDatos($module, $data, $row);
 
-        // Comprobar restricciones UNIQUE.
         $groups = $meta['unique'] ?? [];
 
         if (count($meta['keys']) > 1) {
@@ -929,6 +937,7 @@ class CrudController extends Controller
         }
 
         foreach ($groups as $columns) {
+
             if (is_string($columns)) {
                 $columns = [$columns];
             }
@@ -1041,8 +1050,6 @@ class CrudController extends Controller
 
         $usuario = $this->usuarioActual();
 
-        // Evitar borrados de información familiar
-        // mediante cascadas por usuarios particulares.
         if (
             $this->esUsuarioParticular($usuario) &&
             in_array($module, [
